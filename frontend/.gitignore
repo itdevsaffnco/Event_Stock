@@ -7,9 +7,15 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies & build output
 node_modules
 dist
 dist-ssr
+
+# Environment
+.env
+.env.local
+.env.*.local
 *.local
 
 # Editor directories and files
@@ -17,8 +23,13 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Docker
+/nginx.conf
+/.dockerignore
