@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #4F46E5;
+  --color-primary-hover: #4338CA;
+  --color-primary-light: #EEF2FF;
+
+  --color-surface: #FFFFFF;
+  --color-background: #F8FAFC;
+  --color-border: #E2E8F0;
+
+  --color-text: #0F172A;
+  --color-text-muted: #64748B;
+
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+
+  --radius-card: 1rem;
+  --radius-btn: 0.75rem;
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: #F8FAFC;
+  color: #0F172A;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* Bottom sheet animation */
+@keyframes slide-in-from-bottom {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-in-from-bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Prevent body scroll when sheet open */
+.overflow-hidden { overflow: hidden; }
