@@ -30,6 +30,3 @@ Thumbs.db
 *.sln
 *.sw?
 
-# Docker
-/nginx.conf
-/.dockerignore
