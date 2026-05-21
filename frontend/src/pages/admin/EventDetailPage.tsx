@@ -81,7 +81,7 @@ function StockImportSection({ eventId, stores }: { eventId: number; stores: Stor
             </div>
             <Button
               size="sm"
-              variant={isDone ? 'outline' : 'default'}
+              variant={isDone ? 'outline' : 'primary'}
               onClick={() => handleImport(store)}
               loading={isImporting || loading}
               disabled={catalog.length === 0}

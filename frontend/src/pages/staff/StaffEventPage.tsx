@@ -571,7 +571,7 @@ export default function StaffEventPage() {
 
   const event      = eventData?.data
   const stores     = eventData?.stores     ?? []
-  const warehouses = eventData?.warehouses ?? []
+
 
   const filteredStocks = stockSearch
     ? stocks.filter(s => s.sku_name.toLowerCase().includes(stockSearch.toLowerCase()))
