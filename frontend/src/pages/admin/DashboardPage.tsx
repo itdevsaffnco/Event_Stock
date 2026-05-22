@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, CalendarDays, ShoppingBag, AlertTriangle, Package, Trophy, Calendar, Download, RefreshCw, ChevronDown, Store, X } from 'lucide-react'
+import { TrendingUp, CalendarDays, ShoppingBag, AlertTriangle, Package, Trophy, Calendar, Download, RefreshCw, ChevronDown, Store, X, ArrowDownLeft, ArrowUpRight, FlaskConical, Clock, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { dashboardApi, eventsApi, exportApi } from '@/api/admin/events.api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -138,6 +138,7 @@ export default function DashboardPage() {
   const [eventId,  setEventId]  = useState<number | undefined>(undefined)
   const [storeId,  setStoreId]  = useState<number | undefined>(undefined)
   const [exporting, setExporting] = useState(false)
+  const [logsPage, setLogsPage] = useState(1)
 
   const applyShortcut = (key: Shortcut) => {
     const d = shortcutDates(key)
@@ -146,8 +147,8 @@ export default function DashboardPage() {
     setDateTo(d.to)
   }
 
-  const handleFromChange = (v: string) => { setDateFrom(v); setActiveShortcut('custom') }
-  const handleToChange   = (v: string) => { setDateTo(v);   setActiveShortcut('custom') }
+  const handleFromChange = (v: string) => { setDateFrom(v); setActiveShortcut('custom'); setLogsPage(1) }
+  const handleToChange   = (v: string) => { setDateTo(v);   setActiveShortcut('custom'); setLogsPage(1) }
 
   const dateParams = useMemo(
     () => ({ from: dateFrom, to: dateTo, event_id: eventId, store_id: storeId }),
@@ -209,6 +210,13 @@ export default function DashboardPage() {
   const { data: topSkus } = useQuery({
     queryKey: ['top-skus', dateFrom, dateTo, eventId],
     queryFn: () => dashboardApi.topSkus(dateParams).then(r => r.data.data),
+    refetchInterval: REFRESH_MS,
+    refetchIntervalInBackground: false,
+  })
+
+  const { data: recentLogsData } = useQuery({
+    queryKey: ['recent-logs', dateFrom, dateTo, eventId, storeId, logsPage],
+    queryFn: () => dashboardApi.recentLogs({ from: dateFrom, to: dateTo, event_id: eventId, store_id: storeId, page: logsPage, per_page: 15 }).then(r => r.data),
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
   })
@@ -329,7 +337,7 @@ export default function DashboardPage() {
           {/* Event */}
           <FilterDropdown
             value={eventId}
-            onChange={v => { setEventId(v); setStoreId(undefined) }}
+            onChange={v => { setEventId(v); setStoreId(undefined); setLogsPage(1) }}
             options={(eventsList ?? []).map(ev => ({ value: ev.id, label: ev.name }))}
             placeholder="Semua Event"
             icon={CalendarDays}
@@ -349,7 +357,7 @@ export default function DashboardPage() {
           {/* Active filter chips */}
           {(eventId || storeId) && (
             <button
-              onClick={() => { setEventId(undefined); setStoreId(undefined) }}
+              onClick={() => { setEventId(undefined); setStoreId(undefined); setLogsPage(1) }}
               className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 border border-red-200 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
             >
               <X className="w-3 h-3" />
@@ -557,6 +565,155 @@ export default function DashboardPage() {
         </Card>
 
       </div>
+
+      {/* ── Recent Transactions ─────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-indigo-500" />
+            <CardTitle>Transaksi Terbaru</CardTitle>
+            {recentLogsData && (
+              <span className="ml-auto text-xs text-slate-400">
+                {recentLogsData.total} transaksi
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {!recentLogsData?.data?.length ? (
+            <div className="px-5 py-8 text-center">
+              <Package className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Belum ada transaksi</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="text-left px-5 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">Tanggal & Jam</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Tipe</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Produk</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Store</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-400">Qty</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Input oleh</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {recentLogsData.data.map(log => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const l = log as any
+                      const date = new Date(l.logged_at)
+                      const isOutgoing = l.qty < 0
+                      const isPengiriman = l.type === 'pengiriman'
+
+                      const typeBadge = isPengiriman
+                        ? isOutgoing
+                          ? { label: 'Kirim Keluar', cls: 'bg-blue-50 text-blue-700',    icon: ArrowUpRight }
+                          : { label: 'Kirim Masuk',  cls: 'bg-violet-50 text-violet-700', icon: ArrowDownLeft }
+                        : l.type === 'penjualan'
+                          ? { label: 'Penjualan', cls: 'bg-emerald-50 text-emerald-700', icon: ArrowDownLeft }
+                          : { label: 'Tester',    cls: 'bg-amber-50 text-amber-700',    icon: FlaskConical }
+
+                      const TypeIcon = typeBadge.icon
+
+                      return (
+                        <tr key={l.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <p className="text-xs font-medium text-slate-700">
+                              {date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${typeBadge.cls}`}>
+                              <TypeIcon className="w-3 h-3" />
+                              {typeBadge.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 max-w-[220px]">
+                            <p className="text-sm font-medium text-slate-800 truncate">
+                              {l.event_stock?.sku_name ?? '-'}
+                            </p>
+                            {l.event && <p className="text-xs text-slate-400 truncate">{l.event.name}</p>}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <p className="text-xs text-slate-700">{l.store?.name ?? '-'}</p>
+                            {isPengiriman && isOutgoing && l.to_store && (
+                              <p className="text-xs text-slate-400">→ {l.to_store.name}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <span className={`text-sm font-bold ${isOutgoing ? 'text-red-500' : 'text-emerald-600'}`}>
+                              {isOutgoing ? '' : '+'}{l.qty}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <p className="text-xs text-slate-600">{l.user?.name ?? '-'}</p>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {recentLogsData.last_page > 1 && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-slate-50">
+                  <p className="text-xs text-slate-400">
+                    Halaman {recentLogsData.current_page} dari {recentLogsData.last_page}
+                    <span className="ml-1">({recentLogsData.total} total)</span>
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setLogsPage(p => Math.max(1, p - 1))}
+                      disabled={recentLogsData.current_page === 1}
+                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {Array.from({ length: recentLogsData.last_page }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === recentLogsData.last_page || Math.abs(p - recentLogsData.current_page) <= 1)
+                      .reduce<(number | '...')[]>((acc, p, i, arr) => {
+                        if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('...')
+                        acc.push(p)
+                        return acc
+                      }, [])
+                      .map((p, i) => p === '...'
+                        ? <span key={`ellipsis-${i}`} className="px-1 text-xs text-slate-400">…</span>
+                        : (
+                          <button
+                            key={p}
+                            onClick={() => setLogsPage(p as number)}
+                            className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-medium transition-colors ${
+                              recentLogsData.current_page === p
+                                ? 'bg-indigo-600 text-white'
+                                : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )
+                    }
+                    <button
+                      onClick={() => setLogsPage(p => Math.min(recentLogsData.last_page, p + 1))}
+                      disabled={recentLogsData.current_page === recentLogsData.last_page}
+                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRightIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   )
 }

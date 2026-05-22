@@ -84,6 +84,9 @@ export const dashboardApi = {
 
   stores: (params?: { event_id?: number }) =>
     api.get<{ data: Store[] }>('/admin/stores', { params: { ...params, all: 1 } }),
+
+  recentLogs: (params?: { event_id?: number; store_id?: number; from?: string; to?: string; page?: number; per_page?: number }) =>
+    api.get<PaginatedResponse<StockLog>>('/admin/dashboard/recent-logs', { params }),
 }
 
 export const exportApi = {

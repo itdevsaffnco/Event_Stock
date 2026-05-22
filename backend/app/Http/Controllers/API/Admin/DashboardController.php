@@ -95,6 +95,27 @@ class DashboardController extends Controller
         return response()->json(['data' => $skus]);
     }
 
+    public function recentLogs(Request $request)
+    {
+        $logs = StockLog::query()
+            ->with([
+                'store:id,name',
+                'user:id,name',
+                'eventStock:id,sku_name,sku_code',
+                'event:id,name',
+                'toStore:id,name',
+            ])
+            ->whereIn('type', ['penjualan', 'tester', 'pengiriman'])
+            ->when($request->get('event_id'), fn($q) => $q->where('event_id', $request->get('event_id')))
+            ->when($request->get('store_id'), fn($q) => $q->where('store_id', $request->get('store_id')))
+            ->when($request->filled('from'), fn($q) => $q->where('logged_at', '>=', \Carbon\Carbon::parse($request->get('from'))->startOfDay()))
+            ->when($request->filled('to'),   fn($q) => $q->where('logged_at', '<=', \Carbon\Carbon::parse($request->get('to'))->endOfDay()))
+            ->orderByDesc('logged_at')
+            ->paginate($request->get('per_page', 15));
+
+        return response()->json($logs);
+    }
+
     public function stockAlerts(Request $request)
     {
         $eventId   = $request->get('event_id');

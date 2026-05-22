@@ -29,7 +29,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
         Route::get('summary',      [DashboardController::class, 'summary']);
         Route::get('sales-chart',  [DashboardController::class, 'salesChart']);
         Route::get('top-skus',     [DashboardController::class, 'topSkus']);
-        Route::get('stock-alerts', [DashboardController::class, 'stockAlerts']);
+        Route::get('stock-alerts',  [DashboardController::class, 'stockAlerts']);
+        Route::get('recent-logs',   [DashboardController::class, 'recentLogs']);
     });
 
     // Users
