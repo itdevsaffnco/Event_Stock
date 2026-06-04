@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\StockLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StockLogController extends Controller
 {
@@ -33,16 +34,38 @@ class StockLogController extends Controller
 
     public function update(Request $request, StockLog $log)
     {
-        $data = $request->validate([
-            'qty'   => 'required|integer',
-            'notes' => 'nullable|string',
-            'type'  => 'in:adjustment',
-        ]);
+        if ($log->type === 'initial') {
+            return response()->json(['message' => 'Log initial tidak bisa diedit.'], 422);
+        }
+
+        // Pengiriman: only metadata editable (editing qty would break the paired leg)
+        if ($log->type === 'pengiriman') {
+            $data = $request->validate([
+                'notes'        => 'nullable|string|max:500',
+                'reference_no' => 'nullable|string|max:100',
+                'logged_at'    => 'nullable|date',
+            ]);
+        } else {
+            $data = $request->validate([
+                'qty'          => 'required|integer|not_in:0',
+                'notes'        => 'nullable|string|max:500',
+                'reference_no' => 'nullable|string|max:100',
+                'logged_at'    => 'nullable|date',
+            ]);
+            // Ensure qty is stored as negative for outgoing types
+            if (isset($data['qty'])) {
+                $data['qty'] = -abs($data['qty']);
+            }
+        }
 
         $log->update($data);
-        $log->eventStock->recalculateQty();
 
-        return response()->json(['data' => $log, 'message' => 'Log berhasil diupdate.']);
+        if ($log->eventStock) {
+            $log->eventStock->recalculateQty();
+        }
+
+        $log->load('store:id,name', 'user:id,name', 'eventStock:id,sku_name,sku_code', 'event:id,name');
+        return response()->json(['data' => $log, 'message' => 'Transaksi berhasil diupdate.']);
     }
 
     public function destroy(StockLog $log)
@@ -52,8 +75,30 @@ class StockLogController extends Controller
         }
 
         $eventStock = $log->eventStock;
-        $log->delete();
-        $eventStock->recalculateQty();
+
+        if ($log->type === 'pengiriman') {
+            // Find and delete the paired leg (same event, same logged_at, same abs qty, opposite sign)
+            $paired = StockLog::where('event_id', $log->event_id)
+                ->where('type', 'pengiriman')
+                ->where('id', '!=', $log->id)
+                ->whereRaw('ABS(qty) = ?', [abs($log->qty)])
+                ->where('logged_at', $log->logged_at)
+                ->first();
+
+            DB::transaction(function () use ($log, $eventStock, $paired) {
+                $log->delete();
+                if ($eventStock) $eventStock->recalculateQty();
+
+                if ($paired) {
+                    $pairedStock = $paired->eventStock;
+                    $paired->delete();
+                    if ($pairedStock) $pairedStock->recalculateQty();
+                }
+            });
+        } else {
+            $log->delete();
+            if ($eventStock) $eventStock->recalculateQty();
+        }
 
         return response()->json(['message' => 'Log berhasil dihapus.']);
     }

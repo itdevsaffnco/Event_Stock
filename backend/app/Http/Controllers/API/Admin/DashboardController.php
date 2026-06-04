@@ -111,7 +111,7 @@ class DashboardController extends Controller
             ->when($request->filled('from'), fn($q) => $q->where('logged_at', '>=', \Carbon\Carbon::parse($request->get('from'))->startOfDay()))
             ->when($request->filled('to'),   fn($q) => $q->where('logged_at', '<=', \Carbon\Carbon::parse($request->get('to'))->endOfDay()))
             ->orderByDesc('logged_at')
-            ->paginate($request->get('per_page', 15));
+            ->paginate($request->get('per_page', 10));
 
         return response()->json($logs);
     }

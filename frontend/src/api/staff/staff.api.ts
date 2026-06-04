@@ -28,6 +28,15 @@ export const staffApi = {
   }) =>
     api.post<{ message: string; qty_current: number }>(`/staff/events/${eventId}/logs`, data),
 
+  createLogBulk: (eventId: number, data: {
+    type: 'penjualan' | 'tester'
+    store_id: number
+    logged_at?: string
+    notes?: string
+    items: { event_stock_id: number; qty: number }[]
+  }) =>
+    api.post<{ message: string }>(`/staff/events/${eventId}/logs/bulk`, data),
+
   getMyLogs: (eventId: number, date?: string) =>
     api.get<PaginatedResponse<StockLog>>(`/staff/events/${eventId}/my-logs`, {
       params: { date },

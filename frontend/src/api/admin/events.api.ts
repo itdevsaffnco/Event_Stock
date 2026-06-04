@@ -63,6 +63,9 @@ export const stockLogsApi = {
   list: (eventId: number, params?: { type?: string; store_id?: number; date?: string; page?: number }) =>
     api.get<PaginatedResponse<StockLog>>(`/admin/events/${eventId}/logs`, { params }),
 
+  update: (logId: number, data: { qty?: number; notes?: string; reference_no?: string; logged_at?: string }) =>
+    api.patch<{ data: StockLog; message: string }>(`/admin/logs/${logId}`, data),
+
   delete: (logId: number) =>
     api.delete<{ message: string }>(`/admin/logs/${logId}`),
 }

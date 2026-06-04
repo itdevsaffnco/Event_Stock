@@ -78,6 +78,7 @@ Route::prefix('staff')->middleware(['auth:sanctum', 'role:staff'])->group(functi
     Route::get('events',                   [StaffEventController::class, 'getActiveEvents']);
     Route::get('events/{event}',           [StaffEventController::class, 'getEventDetail']);
     Route::get('events/{event}/stocks',    [StaffEventController::class, 'getStocks']);
-    Route::post('events/{event}/logs',     [StaffEventController::class, 'createLog']);
+    Route::post('events/{event}/logs',      [StaffEventController::class, 'createLog']);
+    Route::post('events/{event}/logs/bulk', [StaffEventController::class, 'createBulkLog']);
     Route::get('events/{event}/my-logs',   [StaffEventController::class, 'getMyLogs']);
 });

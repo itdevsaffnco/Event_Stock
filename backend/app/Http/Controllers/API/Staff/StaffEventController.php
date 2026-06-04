@@ -92,8 +92,11 @@ class StaffEventController extends Controller
 
         // ── Penjualan / Tester: kurangi stok ─────────────────────────────────
         if (in_array($data['type'], ['penjualan', 'tester'])) {
+            if ($eventStock->qty_current === 0) {
+                return response()->json(['message' => 'Stok produk ini sudah habis.'], 422);
+            }
             if ($eventStock->qty_current < $data['qty']) {
-                return response()->json(['message' => 'Stok tidak mencukupi.'], 422);
+                return response()->json(['message' => "Stok tidak mencukupi. Tersisa {$eventStock->qty_current} pcs."], 422);
             }
 
             DB::transaction(function () use ($data, $event, $eventStock, $loggedAt) {
@@ -138,8 +141,11 @@ class StaffEventController extends Controller
             ], 422);
         }
 
+        if ($eventStock->qty_current === 0) {
+            return response()->json(['message' => 'Stok produk ini sudah habis di store asal.'], 422);
+        }
         if ($eventStock->qty_current < $data['qty']) {
-            return response()->json(['message' => 'Stok tidak mencukupi di store asal.'], 422);
+            return response()->json(['message' => "Stok tidak mencukupi di store asal. Tersisa {$eventStock->qty_current} pcs."], 422);
         }
 
         DB::transaction(function () use ($data, $event, $eventStock, $destStock, $loggedAt) {
@@ -180,6 +186,66 @@ class StaffEventController extends Controller
             'message'     => 'Pengiriman berhasil dicatat.',
             'qty_current' => $eventStock->fresh()->qty_current,
         ], 201);
+    }
+
+    public function createBulkLog(Request $request, Event $event)
+    {
+        if ($event->status !== 'active') {
+            return response()->json(['message' => 'Event tidak aktif.'], 422);
+        }
+
+        $data = $request->validate([
+            'type'                   => 'required|in:penjualan,tester',
+            'store_id'               => 'required|exists:stores,id',
+            'logged_at'              => 'nullable|date',
+            'notes'                  => 'nullable|string|max:500',
+            'items'                  => 'required|array|min:1',
+            'items.*.event_stock_id' => 'required|exists:event_stocks,id',
+            'items.*.qty'            => 'required|integer|min:1',
+        ]);
+
+        $loggedAt = isset($data['logged_at'])
+            ? \Carbon\Carbon::parse($data['logged_at'])->setTimeFrom(now())
+            : now();
+
+        $validStoreIds = $event->availableStores()->pluck('id')->toArray();
+        if (!in_array($data['store_id'], $validStoreIds)) {
+            return response()->json(['message' => 'Store tidak valid untuk event ini.'], 422);
+        }
+
+        // Pre-validate all items before touching the DB
+        $stockMap = [];
+        foreach ($data['items'] as $i => $item) {
+            $eventStock = EventStock::find($item['event_stock_id']);
+            if (!$eventStock || $eventStock->event_id !== $event->id || $eventStock->store_id !== (int) $data['store_id']) {
+                return response()->json(['message' => 'Item #' . ($i + 1) . ': Produk tidak valid untuk store ini.'], 422);
+            }
+            if ($eventStock->qty_current === 0) {
+                return response()->json(['message' => "Stok {$eventStock->sku_name} sudah habis."], 422);
+            }
+            if ($eventStock->qty_current < $item['qty']) {
+                return response()->json(['message' => "Stok {$eventStock->sku_name} tidak mencukupi (tersisa {$eventStock->qty_current} pcs)."], 422);
+            }
+            $stockMap[] = ['stock' => $eventStock, 'qty' => $item['qty']];
+        }
+
+        DB::transaction(function () use ($data, $event, $stockMap, $loggedAt) {
+            foreach ($stockMap as $entry) {
+                StockLog::create([
+                    'event_stock_id' => $entry['stock']->id,
+                    'event_id'       => $event->id,
+                    'store_id'       => $data['store_id'],
+                    'user_id'        => auth()->id(),
+                    'type'           => $data['type'],
+                    'qty'            => -abs($entry['qty']),
+                    'notes'          => $data['notes'] ?? null,
+                    'logged_at'      => $loggedAt,
+                ]);
+                $entry['stock']->decrement('qty_current', $entry['qty']);
+            }
+        });
+
+        return response()->json(['message' => 'Semua transaksi berhasil dicatat.'], 201);
     }
 
     public function getMyLogs(Request $request, Event $event)

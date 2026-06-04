@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, CalendarDays, ShoppingBag, AlertTriangle, Package, Trophy, Calendar, Download, RefreshCw, ChevronDown, Store, X, ArrowDownLeft, ArrowUpRight, FlaskConical, Clock, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { TrendingUp, CalendarDays, ShoppingBag, AlertTriangle, Package, Trophy, Calendar, Download, RefreshCw, ChevronDown, Store, X, ArrowDownLeft, ArrowUpRight, FlaskConical, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, Pencil, Trash2 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { dashboardApi, eventsApi, exportApi } from '@/api/admin/events.api'
+import { dashboardApi, eventsApi, exportApi, stockLogsApi } from '@/api/admin/events.api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/PageHeader'
 
@@ -139,6 +139,9 @@ export default function DashboardPage() {
   const [storeId,  setStoreId]  = useState<number | undefined>(undefined)
   const [exporting, setExporting] = useState(false)
   const [logsPage, setLogsPage] = useState(1)
+  const [editingLog, setEditingLog] = useState<{ id: number; type: string; qty: number; notes: string | null; reference_no: string | null; logged_at: string } | null>(null)
+  const [deletingLogId, setDeletingLogId] = useState<number | null>(null)
+  const qc = useQueryClient()
 
   const applyShortcut = (key: Shortcut) => {
     const d = shortcutDates(key)
@@ -169,6 +172,19 @@ export default function DashboardPage() {
       setExporting(false)
     }
   }
+
+  const invalidateLogs = () => qc.invalidateQueries({ queryKey: ['recent-logs'] })
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: { qty?: number; notes?: string; reference_no?: string } }) =>
+      stockLogsApi.update(id, data),
+    onSuccess: () => { setEditingLog(null); invalidateLogs() },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => stockLogsApi.delete(id),
+    onSuccess: () => { setDeletingLogId(null); invalidateLogs() },
+  })
 
   const { data: eventsList } = useQuery({
     queryKey: ['events-all'],
@@ -216,7 +232,7 @@ export default function DashboardPage() {
 
   const { data: recentLogsData } = useQuery({
     queryKey: ['recent-logs', dateFrom, dateTo, eventId, storeId, logsPage],
-    queryFn: () => dashboardApi.recentLogs({ from: dateFrom, to: dateTo, event_id: eventId, store_id: storeId, page: logsPage, per_page: 15 }).then(r => r.data),
+    queryFn: () => dashboardApi.recentLogs({ from: dateFrom, to: dateTo, event_id: eventId, store_id: storeId, page: logsPage, per_page: 10}).then(r => r.data),
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
   })
@@ -597,6 +613,7 @@ export default function DashboardPage() {
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Store</th>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-400">Qty</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Input oleh</th>
+                      <th className="px-4 py-2.5 text-xs font-semibold text-slate-400 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -652,6 +669,26 @@ export default function DashboardPage() {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <p className="text-xs text-slate-600">{l.user?.name ?? '-'}</p>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {l.type !== 'pengiriman' && (
+                                <button
+                                  onClick={() => setEditingLog({ id: l.id, type: l.type, qty: Math.abs(l.qty), notes: l.notes, reference_no: l.reference_no, logged_at: l.logged_at.slice(0, 10) })}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setDeletingLogId(l.id)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Hapus"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -713,6 +750,105 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Edit Modal ──────────────────────────────────────────── */}
+      {editingLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Edit Transaksi</h3>
+              <button onClick={() => setEditingLog(null)} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Qty</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={editingLog.qty}
+                  onChange={e => setEditingLog({ ...editingLog, qty: Number(e.target.value) })}
+                  className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Tanggal</label>
+                <input
+                  type="date"
+                  value={editingLog.logged_at}
+                  onChange={e => setEditingLog({ ...editingLog, logged_at: e.target.value })}
+                  className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">No. Referensi</label>
+                <input
+                  type="text"
+                  value={editingLog.reference_no ?? ''}
+                  onChange={e => setEditingLog({ ...editingLog, reference_no: e.target.value })}
+                  placeholder="Opsional"
+                  className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Catatan</label>
+                <textarea
+                  rows={2}
+                  value={editingLog.notes ?? ''}
+                  onChange={e => setEditingLog({ ...editingLog, notes: e.target.value })}
+                  placeholder="Opsional"
+                  className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent resize-none transition-all"
+                />
+              </div>
+            </div>
+            {editMutation.isError && (
+              <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                {(editMutation.error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Gagal menyimpan.'}
+              </p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setEditingLog(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                Batal
+              </button>
+              <button
+                onClick={() => editMutation.mutate({ id: editingLog.id, data: { qty: editingLog.qty, notes: editingLog.notes ?? undefined, reference_no: editingLog.reference_no ?? undefined, logged_at: editingLog.logged_at } })}
+                disabled={editMutation.isPending}
+                className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+              >
+                {editMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation ──────────────────────────────────── */}
+      {deletingLogId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6 space-y-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Hapus Transaksi?</h3>
+              <p className="text-sm text-slate-500 mt-1">Stok akan dikembalikan otomatis. Tindakan ini tidak dapat dibatalkan.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setDeletingLogId(null)} className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                Batal
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(deletingLogId)}
+                disabled={deleteMutation.isPending}
+                className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+              >
+                {deleteMutation.isPending ? 'Menghapus...' : 'Hapus'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
