@@ -176,7 +176,7 @@ export default function DashboardPage() {
   const invalidateLogs = () => qc.invalidateQueries({ queryKey: ['recent-logs'] })
 
   const editMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { qty?: number; notes?: string; reference_no?: string } }) =>
+    mutationFn: ({ id, data }: { id: number; data: { qty?: number; notes?: string; reference_no?: string; logged_at?: string } }) =>
       stockLogsApi.update(id, data),
     onSuccess: () => { setEditingLog(null); invalidateLogs() },
   })
