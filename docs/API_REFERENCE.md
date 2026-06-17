@@ -4,6 +4,8 @@
 **Auth:** Bearer Token (Laravel Sanctum)  
 **Content-Type:** `application/json`
 
+> **Rate Limiting:** Login dibatasi 5 req/menit. Endpoint admin & staff dibatasi 120 req/menit. Jika terlampaui, server mengembalikan `HTTP 429`.
+
 ---
 
 ## Autentikasi
@@ -449,7 +451,7 @@ Edit log transaksi.
 ### DELETE `/admin/logs/{log}`
 Hapus log transaksi. Stok otomatis direcalculate.
 
-> Menghapus log `pengiriman` akan menghapus pasangan log-nya sekaligus (asal + tujuan).
+> Menghapus log `pengiriman` akan menghapus pasangan log-nya sekaligus (asal + tujuan). Pasangan dicari berdasarkan `pair_id` yang sama.
 
 **Response 200:**
 ```json
@@ -734,10 +736,11 @@ Riwayat transaksi milik staff yang login.
 |-------------|------------|
 | 200 | OK |
 | 201 | Created |
-| 401 | Unauthenticated — token tidak valid atau tidak ada |
+| 401 | Unauthenticated — token tidak valid atau tidak ada. Frontend otomatis redirect ke `/login` |
 | 403 | Forbidden — role tidak sesuai |
 | 404 | Not Found — resource tidak ditemukan |
 | 422 | Unprocessable — validasi gagal |
+| 429 | Too Many Requests — rate limit terlampaui, tunggu beberapa saat |
 | 500 | Server Error |
 
 **Format error umum:**
@@ -752,4 +755,4 @@ Riwayat transaksi milik staff yang login.
 
 ---
 
-*API Reference v1.0 — Event Stock System | Saff & Co.*
+*API Reference v1.1 — Event Stock System | Saff & Co. | Terakhir diperbarui: Juni 2026*

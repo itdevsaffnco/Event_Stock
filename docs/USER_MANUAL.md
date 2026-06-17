@@ -318,7 +318,13 @@ A: Ya. Setiap transaksi langsung memperbarui stok. Jika ada staff lain yang inpu
 **Q: Saya lupa pilih tipe (penjualan/tester) dan sudah submit, bagaimana?**
 A: Hubungi admin untuk mengkoreksi transaksi. Admin bisa mengubah catatan tapi tidak bisa mengubah tipe transaksi.
 
+**Q: Muncul pesan "Terlalu banyak percobaan" saat login atau input transaksi?**
+A: Sistem membatasi jumlah request untuk mencegah penyalahgunaan. Tunggu 1 menit lalu coba lagi. Jika masalah berlanjut, hubungi admin.
+
+**Q: Halaman tiba-tiba reload sendiri setelah sistem diperbarui?**
+A: Ini normal. Setelah ada pembaruan sistem, browser secara otomatis memuat ulang halaman untuk mendapatkan versi terbaru. Transaksi yang sedang diinput mungkin perlu diisi ulang.
+
 ---
 
-*Dokumen ini berlaku untuk Event Stock System v1.0 — Saff & Co.*
+*Dokumen ini berlaku untuk Event Stock System v1.1 — Saff & Co.*
 *Terakhir diperbarui: Juni 2026*

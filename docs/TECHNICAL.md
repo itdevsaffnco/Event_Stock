@@ -167,6 +167,7 @@
 | user_id | FK → users | Staff/admin yang input |
 | from_warehouse_id | FK → warehouses nullable | Asal gudang |
 | to_store_id | FK → stores nullable | Store tujuan (pengiriman) |
+| pair_id | uuid nullable | UUID penghubung dua log pengiriman (asal + tujuan) |
 | type | enum | `initial`, `penjualan`, `tester`, `pengiriman`, `adjustment` |
 | qty | integer | Positif = masuk, Negatif = keluar |
 | price_per_unit | decimal(10,2) nullable | |
@@ -174,6 +175,12 @@
 | reference_no | varchar nullable | No. referensi dokumen |
 | logged_at | datetime | Waktu transaksi |
 | created_at / updated_at | timestamp | |
+
+**Indexes pada `stock_logs`:**
+- `stock_logs_user_id_index`
+- `stock_logs_to_store_id_index`
+- `stock_logs_logged_at_index`
+- `stock_logs_pair_id_index`
 
 ### Tabel: `warehouse_stocks`
 | Kolom | Tipe | Keterangan |
@@ -270,8 +277,10 @@ Event_Stock/
 ├── docs/
 │   ├── TECHNICAL.md            # ← file ini
 │   ├── USER_MANUAL.md
-│   └── API_REFERENCE.md
-└── FLOWCHART.md
+│   ├── API_REFERENCE.md
+│   ├── FLOWCHART_GUIDE.md      # Penjelasan diagram swim-lane
+│   └── flowchart_swimlane.drawio  # Diagram Lucidchart/draw.io
+└── FLOWCHART.md                # Mermaid diagrams
 ```
 
 ---
@@ -327,13 +336,16 @@ Staff dapat menambah multiple produk ke keranjang sebelum submit.
 ### 6.3 Delete Pengiriman (Admin)
 Pengiriman selalu terdiri dari 2 log (asal `-N`, tujuan `+N`).
 
-Saat delete, sistem mencari pasangan log berdasarkan:
+Saat create pengiriman, kedua log mendapat `pair_id` yang sama (UUID v4). Saat delete, sistem mencari pasangan log berdasarkan `pair_id`:
+
+```php
+// StockLogController::destroy()
+$paired = StockLog::where('pair_id', $log->pair_id)
+    ->where('id', '!=', $log->id)
+    ->first();
+// fallback legacy: cari berdasarkan timestamp + qty jika pair_id null
 ```
-event_id = sama
-logged_at = sama (timestamp)
-ABS(qty) = sama
-id ≠ log yang dihapus
-```
+
 Kedua log dihapus dalam satu `DB::transaction`, dan `recalculateQty` dipanggil pada kedua `EventStock`.
 
 ### 6.4 Auto-generate Event Code
@@ -345,7 +357,43 @@ $code  = 'EVT-' . $date . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
 // → EVT-20260608-001
 ```
 
-### 6.5 Stock Alert Threshold
+### 6.5 Race Condition Prevention (Bulk Log)
+Validasi stok di `createBulkLog` dilakukan **di dalam** `DB::transaction` dengan `lockForUpdate()`:
+
+```php
+DB::transaction(function () use ($items) {
+    foreach ($items as $item) {
+        $stock = EventStock::lockForUpdate()->findOrFail($item['event_stock_id']);
+        if ($stock->qty_current + $item['qty'] < 0) {
+            throw new \Exception("Stok {$stock->sku_name} tidak mencukupi.");
+        }
+        StockLog::create([...]);
+        $stock->recalculateQty();
+    }
+});
+```
+
+Ini mencegah race condition saat dua staff input produk yang sama secara bersamaan.
+
+### 6.6 Rate Limiting
+
+Throttle middleware diterapkan di `routes/api.php`:
+
+| Endpoint | Limit |
+|----------|-------|
+| `POST /auth/login` | 5 request / menit |
+| `/admin/*` | 120 request / menit |
+| `/staff/*` | 120 request / menit |
+
+Jika limit terlampaui, backend mengembalikan `HTTP 429`. Frontend menampilkan pesan: *"Terlalu banyak percobaan. Silakan tunggu beberapa saat dan coba lagi."*
+
+### 6.7 Stale Chunk Handling (Frontend)
+Setelah deploy baru, user yang masih membuka tab lama mungkin mendapat error chunk tidak ditemukan karena hash Vite berubah. Dua mekanisme menangani ini:
+
+1. **`vite:preloadError` event** di `main.tsx` — auto-reload halaman
+2. **`ChunkErrorBoundary`** di router — menangkap error lazy import dan auto-reload
+
+### 6.8 Stock Alert Threshold
 Dashboard menampilkan produk dengan `qty_current < threshold`.
 - Default threshold: **50 pcs**
 - Dapat di-override via query param: `?threshold=30`
