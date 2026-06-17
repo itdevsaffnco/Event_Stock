@@ -11,6 +11,7 @@ RUN apk add --no-cache \
     libxml2-dev \
     libzip-dev \
     oniguruma-dev \
+    icu-dev \
     sqlite \
     sqlite-dev \
     mysql-client
@@ -27,7 +28,13 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         bcmath \
         gd \
         xml \
-        zip
+        zip \
+        fileinfo \
+        intl
+
+# PHP config: increase memory & execution time for Excel export
+RUN printf "[PHP]\nmemory_limit = 256M\nmax_execution_time = 120\nupload_max_filesize = 50M\npost_max_size = 50M\n" \
+    > /usr/local/etc/php/conf.d/app.ini
 
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
