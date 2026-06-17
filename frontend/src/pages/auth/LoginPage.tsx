@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -147,6 +147,11 @@ export default function LoginPage() {
                 </button>
               </div>
               {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors">
+                  Lupa password?
+                </Link>
+              </div>
             </div>
 
             {/* API error */}

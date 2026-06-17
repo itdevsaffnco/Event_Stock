@@ -14,7 +14,10 @@ use Illuminate\Support\Facades\Route;
 
 // ─── AUTH ──────────────────────────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
+    // Brute-force protection: 5 attempts per minute per IP
+    Route::post('login',           [AuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+    Route::post('reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me',      [AuthController::class, 'me']);
@@ -22,7 +25,7 @@ Route::prefix('auth')->group(function () {
 });
 
 // ─── ADMIN ─────────────────────────────────────────────────────────────────
-Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(function () {
+Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin', 'throttle:120,1'])->group(function () {
 
     // Dashboard
     Route::prefix('dashboard')->group(function () {
@@ -74,7 +77,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 });
 
 // ─── STAFF ─────────────────────────────────────────────────────────────────
-Route::prefix('staff')->middleware(['auth:sanctum', 'role:staff'])->group(function () {
+Route::prefix('staff')->middleware(['auth:sanctum', 'role:staff', 'throttle:120,1'])->group(function () {
     Route::get('events',                   [StaffEventController::class, 'getActiveEvents']);
     Route::get('events/{event}',           [StaffEventController::class, 'getEventDetail']);
     Route::get('events/{event}/stocks',    [StaffEventController::class, 'getStocks']);

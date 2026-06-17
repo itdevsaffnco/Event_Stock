@@ -26,7 +26,10 @@ class EventStockExport implements FromCollection, WithHeadings, WithMapping, Wit
     public function collection()
     {
         return $this->event->eventStocks()
-            ->with(['store:id,name', 'logs'])
+            ->with('store:id,name')
+            ->withSum(['logs as qty_sold'     => fn($q) => $q->where('type', 'penjualan')], 'qty')
+            ->withSum(['logs as qty_tester'   => fn($q) => $q->where('type', 'tester')], 'qty')
+            ->withSum(['logs as qty_incoming' => fn($q) => $q->where('type', 'pengiriman')->where('qty', '>', 0)], 'qty')
             ->orderBy('store_id')
             ->orderBy('sku_name')
             ->get();
@@ -44,9 +47,9 @@ class EventStockExport implements FromCollection, WithHeadings, WithMapping, Wit
     public function map($stock): array
     {
         $this->index++;
-        $sold     = abs($stock->logs->where('type', 'penjualan')->sum('qty'));
-        $tester   = abs($stock->logs->where('type', 'tester')->sum('qty'));
-        $incoming = $stock->logs->where('type', 'pengiriman')->sum('qty');
+        $sold     = abs((int) ($stock->qty_sold     ?? 0));
+        $tester   = abs((int) ($stock->qty_tester   ?? 0));
+        $incoming =    (int) ($stock->qty_incoming  ?? 0);
 
         return [
             $this->index,
