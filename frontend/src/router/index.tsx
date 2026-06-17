@@ -1,6 +1,23 @@
-import { lazy, Suspense } from 'react'
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { createBrowserRouter, Navigate, Outlet, useRouteError } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+
+function ChunkErrorBoundary() {
+  const error = useRouteError() as Error
+  useEffect(() => {
+    if (error?.message?.includes('Failed to fetch dynamically imported module')) {
+      window.location.reload()
+    }
+  }, [error])
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="text-center space-y-3">
+        <p className="text-slate-600 text-sm">Memuat halaman...</p>
+        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+      </div>
+    </div>
+  )
+}
 
 // Layouts
 const AdminLayout = lazy(() => import('@/components/admin/layout/AdminLayout'))
@@ -47,10 +64,12 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>,
+    errorElement: <ChunkErrorBoundary />,
   },
   {
     path: '/admin',
     element: <AdminGuard />,
+    errorElement: <ChunkErrorBoundary />,
     children: [
       {
         element: (
@@ -73,6 +92,7 @@ export const router = createBrowserRouter([
   {
     path: '/staff',
     element: <StaffGuard />,
+    errorElement: <ChunkErrorBoundary />,
     children: [
       {
         element: (
