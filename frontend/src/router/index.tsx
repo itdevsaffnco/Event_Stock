@@ -7,9 +7,7 @@ const AdminLayout = lazy(() => import('@/components/admin/layout/AdminLayout'))
 const StaffLayout = lazy(() => import('@/components/staff/layout/StaffLayout'))
 
 // Auth
-const LoginPage          = lazy(() => import('@/pages/auth/LoginPage'))
-const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'))
-const ResetPasswordPage  = lazy(() => import('@/pages/auth/ResetPasswordPage'))
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
 
 // Admin pages
 const DashboardPage      = lazy(() => import('@/pages/admin/DashboardPage'))
@@ -49,14 +47,6 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Suspense fallback={<PageLoader />}><LoginPage /></Suspense>,
-  },
-  {
-    path: '/forgot-password',
-    element: <Suspense fallback={<PageLoader />}><ForgotPasswordPage /></Suspense>,
-  },
-  {
-    path: '/reset-password',
-    element: <Suspense fallback={<PageLoader />}><ResetPasswordPage /></Suspense>,
   },
   {
     path: '/admin',

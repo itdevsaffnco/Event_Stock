@@ -15,9 +15,7 @@ use Illuminate\Support\Facades\Route;
 // ─── AUTH ──────────────────────────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
     // Brute-force protection: 5 attempts per minute per IP
-    Route::post('login',           [AuthController::class, 'login'])->middleware('throttle:5,1');
-    Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
-    Route::post('reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me',      [AuthController::class, 'me']);
