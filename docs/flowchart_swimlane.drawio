@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--              SWIM LANE CONTAINER                    -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="c" value="Alur Sistem Event Stock — Saff &amp; Co."
+      style="shape=pool;startSize=30;html=1;fontStyle=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;"
+      vertex="1" parent="1">
+      <mxGeometry x="30" y="30" width="1580" height="730" as="geometry" />
+    </mxCell>
+
+    <!-- ─── LANE: ADMIN ─────────────────────────────────── -->
+    <mxCell id="la" value="Admin"
+      style="swimlane;startSize=30;horizontal=0;html=1;fontStyle=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+      vertex="1" parent="c">
+      <mxGeometry x="0" y="30" width="1580" height="220" as="geometry" />
+    </mxCell>
+
+    <!-- ─── LANE: STAFF ─────────────────────────────────── -->
+    <mxCell id="ls" value="Staff"
+      style="swimlane;startSize=30;horizontal=0;html=1;fontStyle=1;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;"
+      vertex="1" parent="c">
+      <mxGeometry x="0" y="250" width="1580" height="230" as="geometry" />
+    </mxCell>
+
+    <!-- ─── LANE: SYSTEM ────────────────────────────────── -->
+    <mxCell id="ly" value="System"
+      style="swimlane;startSize=30;horizontal=0;html=1;fontStyle=1;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;"
+      vertex="1" parent="c">
+      <mxGeometry x="0" y="480" width="1580" height="220" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--                  ADMIN NODES                        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- START -->
+    <mxCell id="a0" value=""
+      style="ellipse;aspect=fixed;fillColor=#6c8ebf;strokeColor=#6c8ebf;"
+      vertex="1" parent="la">
+      <mxGeometry x="55" y="95" width="30" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- Buat Event -->
+    <mxCell id="a1" value="Buat Event"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+      vertex="1" parent="la">
+      <mxGeometry x="130" y="80" width="110" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Input Stok Awal -->
+    <mxCell id="a2" value="Input Stok Awal&#xa;(Bulk / Import)"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+      vertex="1" parent="la">
+      <mxGeometry x="300" y="80" width="120" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Set Event Active -->
+    <mxCell id="a3" value="Set Status&#xa;Active"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+      vertex="1" parent="la">
+      <mxGeometry x="480" y="80" width="110" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Monitor Dashboard -->
+    <mxCell id="a4" value="Monitor&#xa;Dashboard"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+      vertex="1" parent="la">
+      <mxGeometry x="1150" y="60" width="120" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Export Laporan -->
+    <mxCell id="a5" value="Export&#xa;Laporan"
+      style="shape=document;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+      vertex="1" parent="la">
+      <mxGeometry x="1330" y="55" width="110" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- Edit / Hapus Transaksi -->
+    <mxCell id="a6" value="Edit / Hapus&#xa;Transaksi"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;"
+      vertex="1" parent="la">
+      <mxGeometry x="1150" y="145" width="120" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--                  STAFF NODES                        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- Login -->
+    <mxCell id="s0" value="Login"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="48" y="88" width="70" height="45" as="geometry" />
+    </mxCell>
+
+    <!-- Pilih Event -->
+    <mxCell id="s1" value="Pilih Event&#xa;Aktif"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="175" y="85" width="100" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Pilih Store -->
+    <mxCell id="s2" value="Pilih Store&#xa;/ Booth"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="335" y="85" width="100" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Pilih Tipe -->
+    <mxCell id="s3" value="Pilih Tipe&#xa;Transaksi"
+      style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="490" y="75" width="120" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Penjualan / Tester path -->
+    <mxCell id="s4a" value="Cari Produk &amp; Set Qty&#xa;→ Tambah ke Keranjang"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="670" y="45" width="160" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- Pengiriman path -->
+    <mxCell id="s4b" value="Pilih Produk &amp;&#xa;Store Tujuan"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="670" y="155" width="160" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Submit -->
+    <mxCell id="s5" value="Submit&#xa;Transaksi"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="900" y="88" width="110" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Transaksi Berhasil -->
+    <mxCell id="s6" value="✓ Transaksi&#xa;Tercatat"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#82b366;strokeColor=#82b366;fontColor=#ffffff;fontStyle=1;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="1090" y="93" width="120" height="45" as="geometry" />
+    </mxCell>
+
+    <!-- Lihat Riwayat -->
+    <mxCell id="s7" value="Lihat&#xa;Riwayat Saya"
+      style="shape=document;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+      vertex="1" parent="ls">
+      <mxGeometry x="1270" y="88" width="110" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--                  SYSTEM NODES                       -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- Validasi Token -->
+    <mxCell id="y0" value="Validasi Token&#xa;(Sanctum)"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;"
+      vertex="1" parent="ly">
+      <mxGeometry x="175" y="80" width="110" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Cek Role -->
+    <mxCell id="y_role" value="Cek Role"
+      style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;"
+      vertex="1" parent="ly">
+      <mxGeometry x="335" y="75" width="100" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Cek & Lock Stok -->
+    <mxCell id="y1" value="Cek &amp; Lock Stok&#xa;(lockForUpdate)"
+      style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;"
+      vertex="1" parent="ly">
+      <mxGeometry x="670" y="70" width="140" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Error stok -->
+    <mxCell id="y2" value="Error 422&#xa;Stok Tidak Cukup"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#b85450;fontSize=11;"
+      vertex="1" parent="ly">
+      <mxGeometry x="680" y="160" width="120" height="45" as="geometry" />
+    </mxCell>
+
+    <!-- Simpan StockLog -->
+    <mxCell id="y3" value="Simpan StockLog&#xa;(+ pair_id)"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;"
+      vertex="1" parent="ly">
+      <mxGeometry x="880" y="80" width="120" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- recalculateQty -->
+    <mxCell id="y4" value="recalculate&#xa;Qty"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;"
+      vertex="1" parent="ly">
+      <mxGeometry x="1065" y="80" width="110" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Update qty_current -->
+    <mxCell id="y5" value="Update&#xa;qty_current"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;"
+      vertex="1" parent="ly">
+      <mxGeometry x="1240" y="80" width="110" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--              EDGES — ADMIN INTERNAL                 -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="a0" target="a1" parent="la">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="a1" target="a2" parent="la">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="a2" target="a3" parent="la">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="a4" target="a5" parent="la">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="a4" target="a6" parent="la">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--              EDGES — STAFF INTERNAL                 -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="s0" target="s1" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="s1" target="s2" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="s2" target="s3" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e9" value="Penjualan / Tester" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="s3" target="s4a" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e10" value="Pengiriman" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="s3" target="s4b" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="s4a" target="s5" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="s4b" target="s5" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="s5" target="s6" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="s6" target="s7" parent="ls">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--              EDGES — SYSTEM INTERNAL                -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="y0" target="y_role" parent="ly">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e16" value="OK" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;" edge="1" source="y1" target="y3" parent="ly">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e17" value="Stok Kurang" style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;strokeColor=#b85450;fontColor=#b85450;" edge="1" source="y1" target="y2" parent="ly">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="y3" target="y4" parent="ly">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="y4" target="y5" parent="ly">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!--         EDGES — CROSS LANE (parent = c)            -->
+    <!-- ═══════════════════════════════════════════════════ -->
+
+    <!-- Staff Login → System Auth -->
+    <mxCell id="cx1" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#9673a6;fontSize=10;" edge="1" source="s0" target="y0" parent="c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- System Auth OK → Staff sees Events -->
+    <mxCell id="cx2" value="Auth OK" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#9673a6;fontSize=10;" edge="1" source="y_role" target="s1" parent="c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Admin Set Active → Staff Pilih Event (event muncul) -->
+    <mxCell id="cx3" value="Event tersedia" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#6c8ebf;fontSize=10;" edge="1" source="a3" target="s1" parent="c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Staff Submit → System Cek Stok -->
+    <mxCell id="cx4" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#333333;" edge="1" source="s5" target="y1" parent="c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- System Error → back to Staff (error message) -->
+    <mxCell id="cx5" value="Return Error" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#b85450;fontColor=#b85450;fontSize=10;" edge="1" source="y2" target="s5" parent="c">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="740" y="860" />
+          <mxPoint x="955" y="860" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- System Update qty → Admin Dashboard reflects -->
+    <mxCell id="cx6" value="Stok terupdate" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#6c8ebf;fontSize=10;" edge="1" source="y5" target="a4" parent="c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Admin Dashboard → Staff success (optional link) -->
+    <mxCell id="cx7" value="Rekap transaksi" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#6c8ebf;fontSize=10;" edge="1" source="a6" target="y4" parent="c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>
