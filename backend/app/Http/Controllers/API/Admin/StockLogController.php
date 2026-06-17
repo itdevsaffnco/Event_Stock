@@ -77,13 +77,15 @@ class StockLogController extends Controller
         $eventStock = $log->eventStock;
 
         if ($log->type === 'pengiriman') {
-            // Find and delete the paired leg (same event, same logged_at, same abs qty, opposite sign)
-            $paired = StockLog::where('event_id', $log->event_id)
-                ->where('type', 'pengiriman')
-                ->where('id', '!=', $log->id)
-                ->whereRaw('ABS(qty) = ?', [abs($log->qty)])
-                ->where('logged_at', $log->logged_at)
-                ->first();
+            // Match by pair_id (exact); fall back to old heuristic for legacy logs without pair_id
+            $paired = $log->pair_id
+                ? StockLog::where('pair_id', $log->pair_id)->where('id', '!=', $log->id)->first()
+                : StockLog::where('event_id', $log->event_id)
+                    ->where('type', 'pengiriman')
+                    ->where('id', '!=', $log->id)
+                    ->whereRaw('ABS(qty) = ?', [abs($log->qty)])
+                    ->where('logged_at', $log->logged_at)
+                    ->first();
 
             DB::transaction(function () use ($log, $eventStock, $paired) {
                 $log->delete();

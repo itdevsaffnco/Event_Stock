@@ -8,6 +8,7 @@ use App\Models\EventStock;
 use App\Models\StockLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class StaffEventController extends Controller
 {
@@ -151,6 +152,7 @@ class StaffEventController extends Controller
         DB::transaction(function () use ($data, $event, $eventStock, $destStock, $loggedAt) {
             $qty    = abs($data['qty']);
             $userId = auth()->id();
+            $pairId = Str::uuid()->toString();
 
             // Kurangi store asal
             StockLog::create([
@@ -159,6 +161,7 @@ class StaffEventController extends Controller
                 'store_id'       => $eventStock->store_id,
                 'user_id'        => $userId,
                 'to_store_id'    => $data['to_store_id'],
+                'pair_id'        => $pairId,
                 'type'           => 'pengiriman',
                 'qty'            => -$qty,
                 'notes'          => $data['notes'] ?? null,
@@ -173,6 +176,7 @@ class StaffEventController extends Controller
                 'event_id'       => $event->id,
                 'store_id'       => $destStock->store_id,
                 'user_id'        => $userId,
+                'pair_id'        => $pairId,
                 'type'           => 'pengiriman',
                 'qty'            => $qty,
                 'notes'          => $data['notes'] ?? null,
@@ -213,37 +217,48 @@ class StaffEventController extends Controller
             return response()->json(['message' => 'Store tidak valid untuk event ini.'], 422);
         }
 
-        // Pre-validate all items before touching the DB
-        $stockMap = [];
+        // Validate item ownership before entering transaction
+        $itemMap = [];
         foreach ($data['items'] as $i => $item) {
-            $eventStock = EventStock::find($item['event_stock_id']);
-            if (!$eventStock || $eventStock->event_id !== $event->id || $eventStock->store_id !== (int) $data['store_id']) {
+            $stock = EventStock::find($item['event_stock_id']);
+            if (!$stock || $stock->event_id !== $event->id || $stock->store_id !== (int) $data['store_id']) {
                 return response()->json(['message' => 'Item #' . ($i + 1) . ': Produk tidak valid untuk store ini.'], 422);
             }
-            if ($eventStock->qty_current === 0) {
-                return response()->json(['message' => "Stok {$eventStock->sku_name} sudah habis."], 422);
-            }
-            if ($eventStock->qty_current < $item['qty']) {
-                return response()->json(['message' => "Stok {$eventStock->sku_name} tidak mencukupi (tersisa {$eventStock->qty_current} pcs)."], 422);
-            }
-            $stockMap[] = ['stock' => $eventStock, 'qty' => $item['qty']];
+            $itemMap[] = ['id' => $stock->id, 'qty' => $item['qty'], 'name' => $stock->sku_name];
         }
 
-        DB::transaction(function () use ($data, $event, $stockMap, $loggedAt) {
-            foreach ($stockMap as $entry) {
+        // Validate & write inside one transaction with row-level locks
+        $error = null;
+        DB::transaction(function () use ($data, $event, $itemMap, $loggedAt, &$error) {
+            foreach ($itemMap as $item) {
+                $stock = EventStock::lockForUpdate()->find($item['id']);
+
+                if ($stock->qty_current === 0) {
+                    $error = "Stok {$item['name']} sudah habis.";
+                    return;
+                }
+                if ($stock->qty_current < $item['qty']) {
+                    $error = "Stok {$item['name']} tidak mencukupi (tersisa {$stock->qty_current} pcs).";
+                    return;
+                }
+
                 StockLog::create([
-                    'event_stock_id' => $entry['stock']->id,
+                    'event_stock_id' => $stock->id,
                     'event_id'       => $event->id,
                     'store_id'       => $data['store_id'],
                     'user_id'        => auth()->id(),
                     'type'           => $data['type'],
-                    'qty'            => -abs($entry['qty']),
+                    'qty'            => -abs($item['qty']),
                     'notes'          => $data['notes'] ?? null,
                     'logged_at'      => $loggedAt,
                 ]);
-                $entry['stock']->decrement('qty_current', $entry['qty']);
+                $stock->decrement('qty_current', $item['qty']);
             }
         });
+
+        if ($error) {
+            return response()->json(['message' => $error], 422);
+        }
 
         return response()->json(['message' => 'Semua transaksi berhasil dicatat.'], 201);
     }

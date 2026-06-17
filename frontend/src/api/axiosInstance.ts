@@ -14,10 +14,21 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+
+    // Token expired / invalid — clear session and redirect
+    if (status === 401) {
       localStorage.removeItem('auth_token')
       window.location.href = '/login'
     }
+
+    // Rate limited — inject a friendly message so UI can display it
+    if (status === 429) {
+      error.response.data = {
+        message: 'Terlalu banyak percobaan. Silakan tunggu beberapa saat dan coba lagi.',
+      }
+    }
+
     return Promise.reject(error)
   }
 )

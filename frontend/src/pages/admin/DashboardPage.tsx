@@ -363,7 +363,7 @@ export default function DashboardPage() {
           {(storesList?.length ?? 0) > 0 && (
             <FilterDropdown
               value={storeId}
-              onChange={setStoreId}
+              onChange={v => { setStoreId(v); setLogsPage(1) }}
               options={(storesList ?? []).map(s => ({ value: s.id, label: s.name }))}
               placeholder="Semua Store"
               icon={Store}

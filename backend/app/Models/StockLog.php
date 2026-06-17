@@ -12,7 +12,7 @@ class StockLog extends Model
 
     protected $fillable = [
         'event_stock_id', 'event_id', 'store_id', 'user_id',
-        'from_warehouse_id', 'to_store_id',
+        'from_warehouse_id', 'to_store_id', 'pair_id',
         'type', 'qty', 'price_per_unit', 'notes', 'reference_no', 'logged_at',
     ];
 
