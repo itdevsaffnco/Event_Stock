@@ -91,6 +91,12 @@ class WarehouseController extends Controller
 
         $warehouse->update($data);
 
+        // Warehouse dengan tepat 1 store dianggap merepresentasikan store itu,
+        // jadi nama store ikut disamakan. Kalau lebih dari 1, ambigu — tidak disentuh.
+        if (!empty($data['name']) && $warehouse->stores()->count() === 1) {
+            $warehouse->stores()->update(['name' => $data['name']]);
+        }
+
         return response()->json(['data' => $warehouse, 'message' => 'Warehouse berhasil diupdate.']);
     }
 

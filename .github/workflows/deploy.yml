@@ -129,6 +129,7 @@ jobs:
             mkdir -p /DATA/AppData/eventstock/storage/framework/cache/data
             mkdir -p /DATA/AppData/eventstock/storage/logs
             mkdir -p /DATA/AppData/eventstock/database
+            touch /DATA/AppData/eventstock/database/database.sqlite
 
             docker run -d \
               --name eventstock_backend \
@@ -137,7 +138,7 @@ jobs:
               -p 3011:80 \
               --env-file /tmp/eventstock_backend.env \
               -v /DATA/AppData/eventstock/storage:/var/www/html/storage \
-              -v /DATA/AppData/eventstock/database:/var/www/html/database \
+              -v /DATA/AppData/eventstock/database/database.sqlite:/var/www/html/database/database.sqlite \
               itsaffnco/saffnco_eventstock_backend_app:latest
 
             rm -f /tmp/eventstock_backend.env
