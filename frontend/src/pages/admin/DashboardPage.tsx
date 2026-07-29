@@ -12,8 +12,13 @@ function formatRupiah(n: number) {
   return `Rp ${n}`
 }
 
+// Pakai komponen tanggal lokal browser, bukan toISOString() (yang konversi ke UTC dan
+// bisa mundur satu hari untuk WIB dini hari) - supaya shortcut tanggal tidak salah "hari ini".
 function toYMD(d: Date) {
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 type Shortcut = 'today' | '7d' | '30d' | 'month' | 'custom'

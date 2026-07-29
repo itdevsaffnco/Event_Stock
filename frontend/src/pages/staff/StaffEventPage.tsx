@@ -8,7 +8,14 @@ import {
 import { staffApi } from '@/api/staff/staff.api'
 import type { EventStock } from '@/types'
 
-const today = () => new Date().toISOString().slice(0, 10)
+// Komponen tanggal lokal, bukan toISOString() (UTC) - supaya "hari ini" tidak mundur
+// satu hari saat dini hari WIB (UTC+7).
+const today = () => {
+  const d = new Date()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
 
 const TYPE_CONFIG = {
   penjualan: {

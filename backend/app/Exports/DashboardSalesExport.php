@@ -68,10 +68,12 @@ class DashboardSalesExport implements FromQuery, WithHeadings, WithMapping, With
             $storeTujuan = '-';
         }
 
+        $loggedAt = $log->logged_at->copy()->timezone('Asia/Jakarta');
+
         return [
             $this->index,
-            $log->logged_at->format('d/m/Y'),
-            $log->logged_at->format('H:i'),
+            $loggedAt->format('d/m/Y'),
+            $loggedAt->format('H:i'),
             $typeLabel,
             $log->event?->name          ?? '-',
             $log->store?->name          ?? '-',
