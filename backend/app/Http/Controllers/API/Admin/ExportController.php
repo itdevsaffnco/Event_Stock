@@ -23,14 +23,18 @@ class ExportController extends Controller
     public function exportStocks(Event $event)
     {
         $filename = "stock_{$event->code}_" . now()->format('Ymd_His') . ".xlsx";
-        return Excel::download(new EventStockExport($event), $filename)->withHeaders(self::NO_CACHE_HEADERS);
+        $response = Excel::download(new EventStockExport($event), $filename);
+        $response->headers->add(self::NO_CACHE_HEADERS);
+        return $response;
     }
 
     public function exportLogs(Event $event)
     {
         $type     = request('type');
         $filename = "logs_{$event->code}" . ($type ? "_{$type}" : '') . "_" . now()->format('Ymd_His') . ".xlsx";
-        return Excel::download(new EventSalesLogExport($event, $type), $filename)->withHeaders(self::NO_CACHE_HEADERS);
+        $response = Excel::download(new EventSalesLogExport($event, $type), $filename);
+        $response->headers->add(self::NO_CACHE_HEADERS);
+        return $response;
     }
 
     public function exportDashboardSales(Request $request)
@@ -41,6 +45,8 @@ class ExportController extends Controller
         $to      = $request->get('to');
         $suffix  = ($from && $to) ? "_{$from}_sd_{$to}" : '_' . now()->format('Ymd');
         $filename = "data_transaksi{$suffix}.xlsx";
-        return Excel::download(new DashboardSalesExport($eventId, $storeId, $from, $to), $filename)->withHeaders(self::NO_CACHE_HEADERS);
+        $response = Excel::download(new DashboardSalesExport($eventId, $storeId, $from, $to), $filename);
+        $response->headers->add(self::NO_CACHE_HEADERS);
+        return $response;
     }
 }
