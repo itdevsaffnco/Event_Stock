@@ -92,13 +92,18 @@ export const dashboardApi = {
     api.get<PaginatedResponse<StockLog>>('/admin/dashboard/recent-logs', { params }),
 }
 
+// CDN di depan API meng-cache response export secara publik dan mengabaikan header
+// Cache-Control dari origin (lihat bug report). Selipkan param acak supaya URL selalu
+// unik dan CDN tidak pernah menganggapnya sebagai request yang sudah pernah di-cache.
+const bust = () => ({ _: Date.now() })
+
 export const exportApi = {
   stocks: (eventId: number) =>
-    api.get(`/admin/export/events/${eventId}/stocks`, { responseType: 'blob' }),
+    api.get(`/admin/export/events/${eventId}/stocks`, { params: bust(), responseType: 'blob' }),
 
   logs: (eventId: number, type?: string) =>
-    api.get(`/admin/export/events/${eventId}/logs`, { params: { type }, responseType: 'blob' }),
+    api.get(`/admin/export/events/${eventId}/logs`, { params: { type, ...bust() }, responseType: 'blob' }),
 
   dashboardSales: (params: { from?: string; to?: string; event_id?: number; store_id?: number }) =>
-    api.get('/admin/export/dashboard/sales', { params, responseType: 'blob' }),
+    api.get('/admin/export/dashboard/sales', { params: { ...params, ...bust() }, responseType: 'blob' }),
 }
