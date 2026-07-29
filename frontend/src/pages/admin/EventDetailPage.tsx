@@ -14,8 +14,18 @@ import type { EventStock, Store } from '@/types'
 type Tab = 'info' | 'stocks' | 'logs'
 
 // ── Stock Import Section ────────────────────────────────────────────────────
-function StockImportSection({ eventId, stores }: { eventId: number; stores: Store[] }) {
+// Saat event masih `draft`, tombol ini re-import seluruh katalog gudang (boleh menimpa
+// qty/harga karena belum ada transaksi). Saat event sudah `active`, kita HARUS tidak
+// pernah menimpa baris yang sudah ada (recalculateQty bergantung pada stock_logs yang
+// sudah tercatat) — jadi hanya SKU yang belum ada di store tsb yang dikirim ke bulkCreate.
+function StockImportSection({ eventId, eventStatus, stores, existingStocks }: {
+  eventId: number
+  eventStatus: string
+  stores: Store[]
+  existingStocks: EventStock[]
+}) {
   const qc = useQueryClient()
+  const isDraft = eventStatus === 'draft'
   const [importingId, setImportingId] = useState<number | null>(null)
   const [doneIds, setDoneIds] = useState<Set<number>>(new Set())
   const [errors, setErrors] = useState<Record<number, string>>({})
@@ -35,13 +45,18 @@ function StockImportSection({ eventId, stores }: { eventId: number; stores: Stor
     stocksByWarehouse[wid] = whQueries[idx].data ?? []
   })
 
-  const handleImport = async (store: Store) => {
-    const catalog = stocksByWarehouse[store.warehouse_id] ?? []
-    if (!catalog.length) return
+  const existingNamesByStore = new Map<number, Set<string>>()
+  existingStocks.forEach(s => {
+    if (!existingNamesByStore.has(s.store_id)) existingNamesByStore.set(s.store_id, new Set())
+    existingNamesByStore.get(s.store_id)!.add(s.sku_name)
+  })
+
+  const handleImport = async (store: Store, items: { sku_code: string | null; sku_name: string; qty_available: number; price: number | null }[]) => {
+    if (!items.length) return
     setImportingId(store.id)
     setErrors(prev => { const n = { ...prev }; delete n[store.id]; return n })
     try {
-      await eventStocksApi.bulkCreate(eventId, catalog.map(sku => ({
+      await eventStocksApi.bulkCreate(eventId, items.map(sku => ({
         store_id: store.id,
         sku_code: sku.sku_code || undefined,
         sku_name: sku.sku_name,
@@ -63,6 +78,9 @@ function StockImportSection({ eventId, stores }: { eventId: number; stores: Stor
       {stores.map(store => {
         const catalog = stocksByWarehouse[store.warehouse_id] ?? []
         const loading = whQueries[warehouseIds.indexOf(store.warehouse_id)]?.isFetching
+        const existingNames = existingNamesByStore.get(store.id) ?? new Set<string>()
+        const missing = catalog.filter(c => !existingNames.has(c.sku_name))
+        const itemsToSend = isDraft ? catalog : missing
         const isDone = doneIds.has(store.id)
         const isImporting = importingId === store.id
         const errMsg = errors[store.id]
@@ -75,20 +93,23 @@ function StockImportSection({ eventId, stores }: { eventId: number; stores: Stor
               <p className="text-sm font-semibold text-slate-800">{store.name}</p>
               <p className="text-xs text-slate-400 mt-0.5">
                 {store.warehouse?.name ?? `Warehouse #${store.warehouse_id}`}
-                {!loading && catalog.length > 0 && ` · ${catalog.length} SKU`}
+                {!loading && isDraft && catalog.length > 0 && ` · ${catalog.length} SKU`}
+                {!loading && !isDraft && (missing.length > 0
+                  ? ` · ${missing.length} SKU baru dari ${catalog.length} total gudang`
+                  : catalog.length > 0 ? ' · Semua SKU sudah tersinkron' : '')}
               </p>
               {errMsg && <p className="text-xs text-red-500 mt-1">{errMsg}</p>}
             </div>
             <Button
               size="sm"
               variant={isDone ? 'outline' : 'primary'}
-              onClick={() => handleImport(store)}
+              onClick={() => handleImport(store, itemsToSend)}
               loading={isImporting || loading}
-              disabled={catalog.length === 0}
+              disabled={itemsToSend.length === 0}
             >
-              {isDone
-                ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Re-import</>
-                : <><Download className="w-3.5 h-3.5" /> Import Stok Gudang</>
+              {isDraft
+                ? (isDone ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Re-import</> : <><Download className="w-3.5 h-3.5" /> Import Stok Gudang</>)
+                : <><Download className="w-3.5 h-3.5" /> Tambah {missing.length > 0 ? `${missing.length} ` : ''}SKU Baru</>
               }
             </Button>
           </div>
@@ -537,11 +558,23 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {event.status === 'draft' && (
+          {(event.status === 'draft' || event.status === 'active') && (
             <Card>
-              <CardHeader><CardTitle>Import Stok dari Warehouse</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>{event.status === 'draft' ? 'Import Stok dari Warehouse' : 'Tambah SKU Baru dari Warehouse'}</CardTitle>
+              </CardHeader>
               <CardContent>
-                <StockImportSection eventId={Number(eventId)} stores={stores as unknown as Store[]} />
+                {event.status !== 'draft' && (
+                  <p className="text-xs text-slate-500 -mt-1 mb-3">
+                    Event sudah aktif — hanya SKU yang belum ada di masing-masing store yang akan ditambahkan. Stok yang sudah berjalan tidak akan diubah.
+                  </p>
+                )}
+                <StockImportSection
+                  eventId={Number(eventId)}
+                  eventStatus={event.status}
+                  stores={stores as unknown as Store[]}
+                  existingStocks={allStocks}
+                />
               </CardContent>
             </Card>
           )}
