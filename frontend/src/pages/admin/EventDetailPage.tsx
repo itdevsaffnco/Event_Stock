@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Trash2, FileDown, Play, Check, Lock, Download } from 'lucide-react'
+import { ArrowLeft, Trash2, FileDown, Play, Check, Lock, Download, Square } from 'lucide-react'
 import { eventsApi, eventStocksApi, exportApi } from '@/api/admin/events.api'
 import { warehousesApi } from '@/api/admin/warehouses.api'
 import { Button } from '@/components/ui/button'
@@ -378,6 +378,7 @@ export default function EventDetailPage() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('info')
   const [confirmActivate, setConfirmActivate] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['event', eventId],
@@ -393,6 +394,11 @@ export default function EventDetailPage() {
   const activateMutation = useMutation({
     mutationFn: () => eventsApi.updateStatus(Number(eventId), 'active'),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['event', eventId] }); setConfirmActivate(false) },
+  })
+
+  const closeMutation = useMutation({
+    mutationFn: () => eventsApi.updateStatus(Number(eventId), 'closed'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['event', eventId] }); setConfirmClose(false) },
   })
 
   const handleExport = async (type: 'stocks' | 'logs') => {
@@ -446,6 +452,11 @@ export default function EventDetailPage() {
           {event.status === 'draft' && (
             <Button size="sm" onClick={() => setConfirmActivate(true)}>
               <Play className="w-3.5 h-3.5" /> Aktifkan
+            </Button>
+          )}
+          {event.status === 'active' && (
+            <Button size="sm" variant="outline" onClick={() => setConfirmClose(true)}>
+              <Square className="w-3.5 h-3.5" /> Tutup Event
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => handleExport('stocks')}>
@@ -596,6 +607,17 @@ export default function EventDetailPage() {
         confirmLabel="Aktifkan"
         variant="primary"
         loading={activateMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmClose}
+        onClose={() => setConfirmClose(false)}
+        onConfirm={() => closeMutation.mutate()}
+        title="Tutup Event?"
+        description="Setelah ditutup, staff tidak bisa input transaksi lagi dan status ini tidak bisa dikembalikan ke aktif."
+        confirmLabel="Tutup Event"
+        variant="danger"
+        loading={closeMutation.isPending}
       />
     </div>
   )
