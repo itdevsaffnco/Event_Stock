@@ -44,11 +44,11 @@ class EventSalesLogExport implements FromQuery, WithHeadings, WithMapping, WithS
     public function map($log): array
     {
         $this->index++;
-        $loggedAt = $log->logged_at->copy()->timezone('Asia/Jakarta');
+        $loggedAt = $log->logged_at?->copy()->timezone('Asia/Jakarta');
         return [
             $this->index,
-            $loggedAt->format('d/m/Y'),
-            $loggedAt->format('H:i'),
+            $loggedAt?->format('d/m/Y') ?? '-',
+            $loggedAt?->format('H:i') ?? '-',
             $log->store->name,
             $log->eventStock?->sku_code ?? '-',
             $log->eventStock?->sku_name ?? '-',
