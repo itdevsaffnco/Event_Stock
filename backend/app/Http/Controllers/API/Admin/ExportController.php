@@ -12,17 +12,25 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ExportController extends Controller
 {
+    // Laporan selalu dibuat dari data terkini - jangan biarkan browser/proxy
+    // menyajikan file lama untuk request dengan parameter (tanggal/filter) yang sama.
+    private const NO_CACHE_HEADERS = [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma'        => 'no-cache',
+        'Expires'       => '0',
+    ];
+
     public function exportStocks(Event $event)
     {
         $filename = "stock_{$event->code}_" . now()->format('Ymd_His') . ".xlsx";
-        return Excel::download(new EventStockExport($event), $filename);
+        return Excel::download(new EventStockExport($event), $filename)->withHeaders(self::NO_CACHE_HEADERS);
     }
 
     public function exportLogs(Event $event)
     {
         $type     = request('type');
         $filename = "logs_{$event->code}" . ($type ? "_{$type}" : '') . "_" . now()->format('Ymd_His') . ".xlsx";
-        return Excel::download(new EventSalesLogExport($event, $type), $filename);
+        return Excel::download(new EventSalesLogExport($event, $type), $filename)->withHeaders(self::NO_CACHE_HEADERS);
     }
 
     public function exportDashboardSales(Request $request)
@@ -33,6 +41,6 @@ class ExportController extends Controller
         $to      = $request->get('to');
         $suffix  = ($from && $to) ? "_{$from}_sd_{$to}" : '_' . now()->format('Ymd');
         $filename = "data_transaksi{$suffix}.xlsx";
-        return Excel::download(new DashboardSalesExport($eventId, $storeId, $from, $to), $filename);
+        return Excel::download(new DashboardSalesExport($eventId, $storeId, $from, $to), $filename)->withHeaders(self::NO_CACHE_HEADERS);
     }
 }
