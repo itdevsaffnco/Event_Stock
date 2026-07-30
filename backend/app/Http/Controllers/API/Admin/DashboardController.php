@@ -105,7 +105,7 @@ class DashboardController extends Controller
                 'event:id,name',
                 'toStore:id,name',
             ])
-            ->whereIn('type', ['penjualan', 'tester', 'pengiriman'])
+            ->whereIn('type', ['penjualan', 'tester', 'pengiriman', 'adjustment'])
             ->when($request->get('event_id'), fn($q) => $q->where('event_id', $request->get('event_id')))
             ->when($request->get('store_id'), fn($q) => $q->where('store_id', $request->get('store_id')))
             ->when($request->filled('from'), fn($q) => $q->where('logged_at', '>=', \Carbon\Carbon::parse($request->get('from'))->startOfDay()))

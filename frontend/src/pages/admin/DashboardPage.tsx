@@ -633,9 +633,13 @@ export default function DashboardPage() {
                         ? isOutgoing
                           ? { label: 'Kirim Keluar', cls: 'bg-blue-50 text-blue-700',    icon: ArrowUpRight }
                           : { label: 'Kirim Masuk',  cls: 'bg-violet-50 text-violet-700', icon: ArrowDownLeft }
-                        : l.type === 'penjualan'
-                          ? { label: 'Penjualan', cls: 'bg-emerald-50 text-emerald-700', icon: ArrowDownLeft }
-                          : { label: 'Tester',    cls: 'bg-amber-50 text-amber-700',    icon: FlaskConical }
+                        : l.type === 'adjustment'
+                          ? isOutgoing
+                            ? { label: 'Penyesuaian -', cls: 'bg-red-50 text-red-700',      icon: ArrowUpRight }
+                            : { label: 'Penyesuaian +', cls: 'bg-teal-50 text-teal-700',    icon: ArrowDownLeft }
+                          : l.type === 'penjualan'
+                            ? { label: 'Penjualan', cls: 'bg-emerald-50 text-emerald-700', icon: ArrowDownLeft }
+                            : { label: 'Tester',    cls: 'bg-amber-50 text-amber-700',    icon: FlaskConical }
 
                       const TypeIcon = typeBadge.icon
 

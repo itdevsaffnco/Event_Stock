@@ -55,6 +55,9 @@ export const eventStocksApi = {
   update: (eventId: number, stockId: number, data: Partial<EventStock>) =>
     api.put<{ data: EventStock; message: string }>(`/admin/events/${eventId}/stocks/${stockId}`, data),
 
+  adjust: (eventId: number, stockId: number, data: { qty: number; notes?: string }) =>
+    api.post<{ data: EventStock; message: string }>(`/admin/events/${eventId}/stocks/${stockId}/adjust`, data),
+
   delete: (eventId: number, stockId: number) =>
     api.delete<{ message: string }>(`/admin/events/${eventId}/stocks/${stockId}`),
 }

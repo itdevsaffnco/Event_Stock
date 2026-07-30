@@ -52,8 +52,9 @@ class StockLogController extends Controller
                 'reference_no' => 'nullable|string|max:100',
                 'logged_at'    => 'nullable|date',
             ]);
-            // Ensure qty is stored as negative for outgoing types
-            if (isset($data['qty'])) {
+            // Penjualan/tester selalu mengurangi stok - qty disimpan negatif.
+            // Adjustment boleh plus atau minus (tanda yang diinput admin dipertahankan apa adanya).
+            if (isset($data['qty']) && in_array($log->type, ['penjualan', 'tester'])) {
                 $data['qty'] = -abs($data['qty']);
             }
         }

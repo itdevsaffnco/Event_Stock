@@ -57,6 +57,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin', 'throttle:120,
         Route::post('bulk',           [EventStockController::class, 'bulkStore']);
         Route::post('import-warehouse', [EventStockController::class, 'importFromWarehouse']);
         Route::put('/{stock}',        [EventStockController::class, 'update']);
+        Route::post('/{stock}/adjust', [EventStockController::class, 'adjust']);
         Route::delete('/{stock}',     [EventStockController::class, 'destroy']);
     });
 

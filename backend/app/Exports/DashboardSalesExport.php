@@ -30,7 +30,7 @@ class DashboardSalesExport implements FromQuery, WithHeadings, WithMapping, With
     public function query()
     {
         return StockLog::query()
-            ->whereIn('type', ['penjualan', 'tester', 'pengiriman'])
+            ->whereIn('type', ['penjualan', 'tester', 'pengiriman', 'adjustment'])
             ->when($this->eventId, fn($q) => $q->where('event_id', $this->eventId))
             ->when($this->storeId, fn($q) => $q->where('store_id', $this->storeId))
             ->when($this->from, fn($q) => $q->where('logged_at', '>=', \Carbon\Carbon::parse($this->from)->startOfDay()))
@@ -63,6 +63,9 @@ class DashboardSalesExport implements FromQuery, WithHeadings, WithMapping, With
         if ($log->type === 'pengiriman') {
             $typeLabel  = $log->qty < 0 ? 'Kirim Barang (Keluar)' : 'Kirim Barang (Masuk)';
             $storeTujuan = $log->qty < 0 ? ($log->toStore?->name ?? '-') : '-';
+        } elseif ($log->type === 'adjustment') {
+            $typeLabel   = $log->qty < 0 ? 'Penyesuaian (Kurang)' : 'Penyesuaian (Tambah)';
+            $storeTujuan = '-';
         } else {
             $typeLabel   = $log->type === 'penjualan' ? 'Penjualan' : 'Tester';
             $storeTujuan = '-';

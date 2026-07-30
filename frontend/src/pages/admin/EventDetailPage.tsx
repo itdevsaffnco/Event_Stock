@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Trash2, FileDown, Play, Check, Lock, Download, Square } from 'lucide-react'
+import { ArrowLeft, Trash2, FileDown, Play, Check, Lock, Download, Square, PackagePlus } from 'lucide-react'
 import { eventsApi, eventStocksApi, exportApi } from '@/api/admin/events.api'
 import { warehousesApi } from '@/api/admin/warehouses.api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EventStatusBadge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { Dialog } from '@/components/ui/dialog'
 import { formatDate } from '@/lib/utils'
 import type { EventStock, Store } from '@/types'
 
@@ -133,8 +134,13 @@ function ExistingStocksTable({ eventId, eventStatus }: { eventId: number; eventS
   const [search, setSearch] = useState('')
   const [filterStoreId, setFilterStoreId] = useState<number | ''>('')
   const [page, setPage] = useState(1)
+  const [adjustTarget, setAdjustTarget] = useState<EventStock | null>(null)
+  const [adjustSign, setAdjustSign] = useState<'add' | 'sub'>('add')
+  const [adjustQty, setAdjustQty] = useState('')
+  const [adjustNotes, setAdjustNotes] = useState('')
 
   const isDraft = eventStatus === 'draft'
+  const isClosed = eventStatus === 'closed'
 
   const { data: stocks = [], isLoading } = useQuery({
     queryKey: ['event-stocks', eventId],
@@ -163,6 +169,16 @@ function ExistingStocksTable({ eventId, eventStatus }: { eventId: number; eventS
   const deleteMutation = useMutation({
     mutationFn: () => eventStocksApi.delete(eventId, deleteTarget!.id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['event-stocks', eventId] }); setDeleteTarget(null) },
+  })
+
+  const closeAdjust = () => { setAdjustTarget(null); setAdjustQty(''); setAdjustNotes(''); setAdjustSign('add') }
+
+  const adjustMutation = useMutation({
+    mutationFn: () => eventStocksApi.adjust(eventId, adjustTarget!.id, {
+      qty: (adjustSign === 'add' ? 1 : -1) * Number(adjustQty),
+      notes: adjustNotes || undefined,
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['event-stocks', eventId] }); closeAdjust() },
   })
 
   const setField = (stockId: number, field: keyof PendingEdit, value: string | number | '') => {
@@ -226,7 +242,9 @@ function ExistingStocksTable({ eventId, eventStatus }: { eventId: number; eventS
       {!isDraft && (
         <div className="flex items-center gap-2 px-3 py-2 mb-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500">
           <Lock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-          Data stock terkunci setelah event diaktifkan
+          {isClosed
+            ? 'Data stock terkunci setelah event ditutup'
+            : 'Nama/kode/harga terkunci setelah event diaktifkan — gunakan ikon sesuaikan stok untuk menambah/mengurangi qty'}
         </div>
       )}
 
@@ -312,8 +330,16 @@ function ExistingStocksTable({ eventId, eventStatus }: { eventId: number; eventS
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                    ) : (
+                    ) : isClosed ? (
                       <Lock className="w-3.5 h-3.5 text-slate-200 mx-auto" />
+                    ) : (
+                      <button
+                        onClick={() => setAdjustTarget(s)}
+                        className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                        title="Sesuaikan Stok"
+                      >
+                        <PackagePlus className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -367,6 +393,79 @@ function ExistingStocksTable({ eventId, eventStatus }: { eventId: number; eventS
         description={`"${deleteTarget?.sku_name}" akan dihapus.`}
         loading={deleteMutation.isPending}
       />
+
+      <Dialog open={!!adjustTarget} onClose={closeAdjust} title="Sesuaikan Stok">
+        {adjustTarget && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{adjustTarget.sku_name}</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {adjustTarget.store?.name} · Stok saat ini: <span className="font-semibold text-slate-600">{adjustTarget.qty_current} pcs</span>
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Jenis Penyesuaian</label>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setAdjustSign('add')}
+                  className={`h-9 rounded-xl text-sm font-medium border transition-colors ${adjustSign === 'add' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                >
+                  + Tambah
+                </button>
+                <button
+                  onClick={() => setAdjustSign('sub')}
+                  className={`h-9 rounded-xl text-sm font-medium border transition-colors ${adjustSign === 'sub' ? 'bg-red-50 border-red-300 text-red-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                >
+                  − Kurangi
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Jumlah</label>
+              <input
+                type="number"
+                min={1}
+                value={adjustQty}
+                onChange={e => setAdjustQty(e.target.value)}
+                placeholder="0"
+                className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Catatan</label>
+              <textarea
+                rows={2}
+                value={adjustNotes}
+                onChange={e => setAdjustNotes(e.target.value)}
+                placeholder="Contoh: sync stok tambahan dari warehouse"
+                className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent resize-none transition-all"
+              />
+            </div>
+
+            {adjustMutation.isError && (
+              <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                {(adjustMutation.error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Gagal menyesuaikan stok.'}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={closeAdjust} className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                Batal
+              </button>
+              <button
+                onClick={() => adjustMutation.mutate()}
+                disabled={adjustMutation.isPending || !adjustQty || Number(adjustQty) <= 0}
+                className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+              >
+                {adjustMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </>
   )
 }
