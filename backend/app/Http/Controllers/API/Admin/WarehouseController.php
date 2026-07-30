@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\API\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\EventStock;
+use App\Models\StockLog;
 use App\Models\Warehouse;
 use App\Models\WarehouseStock;
 use Illuminate\Http\Request;
@@ -136,6 +138,10 @@ class WarehouseController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $warehouse) {
+            // Simpan qty lama per SKU dulu, untuk menghitung selisih yang perlu
+            // disinkronkan ke EventStock event aktif setelah stock gudang diganti.
+            $oldQtyBySku = $warehouse->warehouseStocks()->pluck('qty_available', 'sku_name');
+
             // Replace all stocks dengan yang baru
             $warehouse->warehouseStocks()->delete();
 
@@ -150,6 +156,43 @@ class WarehouseController extends Controller
             ], $validated['stocks']);
 
             WarehouseStock::insert($stocks);
+
+            // Warehouse adalah sumber kebenaran - EventStock event AKTIF yang memakai
+            // warehouse & SKU ini di-SET supaya PERSIS SAMA dengan qty warehouse yang
+            // baru. Dicek per-baris EventStock (bukan dilewati hanya karena qty
+            // warehouse-nya sendiri kebetulan tidak berubah di save ini) supaya drift
+            // lama di event tetap ikut terkoreksi kapan pun "Simpan Stock" ditekan.
+            // Tetap tercatat sebagai StockLog type=adjustment untuk jejak audit.
+            $newQtyBySku = collect($validated['stocks'])->pluck('qty_available', 'sku_name');
+            $allSkuNames = $oldQtyBySku->keys()->merge($newQtyBySku->keys())->unique();
+
+            foreach ($allSkuNames as $skuName) {
+                $newQty = (int) ($newQtyBySku[$skuName] ?? 0);
+
+                EventStock::where('sku_name', $skuName)
+                    ->whereHas('store', fn($q) => $q->where('warehouse_id', $warehouse->id))
+                    ->whereHas('event', fn($q) => $q->where('status', 'active'))
+                    ->each(function (EventStock $es) use ($newQty) {
+                        $delta = $newQty - $es->qty_current;
+                        if ($delta === 0) {
+                            return;
+                        }
+
+                        $es->qty_current = $newQty;
+                        $es->save();
+
+                        StockLog::create([
+                            'event_stock_id' => $es->id,
+                            'event_id'       => $es->event_id,
+                            'store_id'       => $es->store_id,
+                            'user_id'        => auth()->id(),
+                            'type'           => 'adjustment',
+                            'qty'            => $delta,
+                            'notes'          => 'Sinkron otomatis dari perubahan stok gudang',
+                            'logged_at'      => now(),
+                        ]);
+                    });
+            }
         });
 
         return response()->json([

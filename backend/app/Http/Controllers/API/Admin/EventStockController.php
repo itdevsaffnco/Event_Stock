@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\EventStock;
 use App\Models\StockLog;
+use App\Services\WarehouseSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -106,52 +107,16 @@ class EventStockController extends Controller
         if (isset($data['qty_initial'])) {
             StockLog::where(['event_stock_id' => $stock->id, 'type' => 'initial'])
                     ->update(['qty' => $data['qty_initial']]);
+
+            $before = $stock->qty_current;
             $stock->recalculateQty();
+            $delta = $stock->qty_current - $before;
+            if ($delta !== 0) {
+                WarehouseSync::applyDelta($stock->store->warehouse_id, $stock->sku_name, $delta);
+            }
         }
 
         return response()->json(['data' => $stock, 'message' => 'Stock berhasil diupdate.']);
-    }
-
-    // Menyesuaikan qty_current SKU yang SUDAH ADA di event aktif - dipakai saat stok
-    // gudang bertambah/berkurang setelah SKU tsb diimpor ke event (EventStock adalah
-    // salinan sekali-jalan, tidak sync otomatis dengan WarehouseStock). Dicatat sebagai
-    // StockLog type=adjustment supaya ada jejak audit, bukan overwrite diam-diam.
-    public function adjust(Request $request, Event $event, EventStock $stock)
-    {
-        if ($stock->event_id !== $event->id) {
-            return response()->json(['message' => 'Stock tidak valid untuk event ini.'], 422);
-        }
-
-        if ($event->status === 'closed') {
-            return response()->json(['message' => 'Event sudah ditutup, stok tidak bisa disesuaikan.'], 422);
-        }
-
-        $data = $request->validate([
-            'qty'   => 'required|integer|not_in:0',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        if ($stock->qty_current + $data['qty'] < 0) {
-            return response()->json([
-                'message' => "Penyesuaian akan membuat stok negatif. Stok saat ini {$stock->qty_current} pcs.",
-            ], 422);
-        }
-
-        DB::transaction(function () use ($data, $event, $stock) {
-            StockLog::create([
-                'event_stock_id' => $stock->id,
-                'event_id'       => $event->id,
-                'store_id'       => $stock->store_id,
-                'user_id'        => auth()->id(),
-                'type'           => 'adjustment',
-                'qty'            => $data['qty'],
-                'notes'          => $data['notes'] ?? null,
-                'logged_at'      => now(),
-            ]);
-            $stock->increment('qty_current', $data['qty']);
-        });
-
-        return response()->json(['data' => $stock->fresh(), 'message' => 'Stok berhasil disesuaikan.']);
     }
 
     public function destroy(Event $event, EventStock $stock)

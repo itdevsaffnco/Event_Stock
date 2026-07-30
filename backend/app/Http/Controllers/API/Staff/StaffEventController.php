@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\EventStock;
 use App\Models\StockLog;
+use App\Services\WarehouseSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -113,6 +114,7 @@ class StaffEventController extends Controller
                     'logged_at'      => $loggedAt,
                 ]);
                 $eventStock->decrement('qty_current', abs($data['qty']));
+                WarehouseSync::applyDelta($eventStock->store->warehouse_id, $eventStock->sku_name, -abs($data['qty']));
             });
 
             return response()->json([
@@ -169,6 +171,7 @@ class StaffEventController extends Controller
                 'logged_at'      => $loggedAt,
             ]);
             $eventStock->decrement('qty_current', $qty);
+            WarehouseSync::applyDelta($eventStock->store->warehouse_id, $eventStock->sku_name, -$qty);
 
             // Tambah store tujuan
             StockLog::create([
@@ -184,6 +187,7 @@ class StaffEventController extends Controller
                 'logged_at'      => $loggedAt,
             ]);
             $destStock->increment('qty_current', $qty);
+            WarehouseSync::applyDelta($destStock->store->warehouse_id, $destStock->sku_name, $qty);
         });
 
         return response()->json([
@@ -253,6 +257,7 @@ class StaffEventController extends Controller
                     'logged_at'      => $loggedAt,
                 ]);
                 $stock->decrement('qty_current', $item['qty']);
+                WarehouseSync::applyDelta($stock->store->warehouse_id, $stock->sku_name, -$item['qty']);
             }
         });
 

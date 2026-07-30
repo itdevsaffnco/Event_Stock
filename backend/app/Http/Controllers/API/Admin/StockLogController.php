@@ -4,12 +4,26 @@ namespace App\Http\Controllers\API\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\EventStock;
 use App\Models\StockLog;
+use App\Services\WarehouseSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class StockLogController extends Controller
 {
+    // Hitung ulang qty_current dari StockLog, lalu terapkan selisihnya (delta) ke
+    // WarehouseStock terkait - supaya koreksi transaksi tetap konsisten dengan gudang.
+    private function recalculateAndSync(EventStock $stock): void
+    {
+        $before = $stock->qty_current;
+        $stock->recalculateQty();
+        $delta = $stock->qty_current - $before;
+        if ($delta !== 0) {
+            WarehouseSync::applyDelta($stock->store->warehouse_id, $stock->sku_name, $delta);
+        }
+    }
+
     public function index(Request $request, Event $event)
     {
         $logs = StockLog::query()
@@ -62,7 +76,7 @@ class StockLogController extends Controller
         $log->update($data);
 
         if ($log->eventStock) {
-            $log->eventStock->recalculateQty();
+            $this->recalculateAndSync($log->eventStock);
         }
 
         $log->load('store:id,name', 'user:id,name', 'eventStock:id,sku_name,sku_code', 'event:id,name');
@@ -90,17 +104,17 @@ class StockLogController extends Controller
 
             DB::transaction(function () use ($log, $eventStock, $paired) {
                 $log->delete();
-                if ($eventStock) $eventStock->recalculateQty();
+                if ($eventStock) $this->recalculateAndSync($eventStock);
 
                 if ($paired) {
                     $pairedStock = $paired->eventStock;
                     $paired->delete();
-                    if ($pairedStock) $pairedStock->recalculateQty();
+                    if ($pairedStock) $this->recalculateAndSync($pairedStock);
                 }
             });
         } else {
             $log->delete();
-            if ($eventStock) $eventStock->recalculateQty();
+            if ($eventStock) $this->recalculateAndSync($eventStock);
         }
 
         return response()->json(['message' => 'Log berhasil dihapus.']);
