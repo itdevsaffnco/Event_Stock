@@ -51,6 +51,15 @@ class WarehouseController extends Controller
                 'status'    => $data['status']    ?? 'active',
             ]);
 
+            // Tidak ada UI untuk kelola store — 1 warehouse = 1 store. Tanpa store ini,
+            // stock gudang tidak bisa di-import ke event dan staff tidak punya pilihan store.
+            $wh->stores()->create([
+                'name'      => $wh->name,
+                'pic_name'  => $wh->pic_name,
+                'pic_phone' => $wh->pic_phone,
+                'status'    => 'active',
+            ]);
+
             if (!empty($data['stocks'])) {
                 $stocks = array_map(fn($s) => [
                     'warehouse_id'  => $wh->id,
