@@ -4,9 +4,9 @@ namespace App\Http\Controllers\API\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\EventStock;
-use App\Models\StockLog;
 use App\Models\Warehouse;
 use App\Models\WarehouseStock;
+use App\Services\EventStockSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +18,7 @@ class WarehouseController extends Controller
             ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
             ->withCount(['stores', 'warehouseStocks'])
+            ->with('openEvents:events.id,events.name,events.code,events.status')
             ->latest()
             ->paginate(15);
 
@@ -140,80 +141,115 @@ class WarehouseController extends Controller
     {
         $validated = $request->validate([
             'stocks'                => 'required|array|min:1',
-            'stocks.*.sku_name'     => 'required|string|max:255',
+            'stocks.*.id'           => 'nullable|integer',
+            'stocks.*.qty_original' => 'nullable|integer|min:0',
+            'stocks.*.sku_name'     => 'required|string|max:255|distinct',
             'stocks.*.sku_code'     => 'nullable|string|max:100',
             'stocks.*.qty_available'=> 'required|integer|min:0',
             'stocks.*.price'        => 'nullable|numeric|min:0',
+        ], [
+            'stocks.*.sku_name.distinct' => 'Nama SKU ":input" muncul lebih dari sekali.',
         ]);
 
         DB::transaction(function () use ($validated, $warehouse) {
-            // Simpan qty lama per SKU dulu, untuk menghitung selisih yang perlu
-            // disinkronkan ke EventStock event aktif setelah stock gudang diganti.
-            $oldQtyBySku = $warehouse->warehouseStocks()->pluck('qty_available', 'sku_name');
+            // Update baris yang sudah ada (bukan hapus + insert ulang) dan dikunci,
+            // supaya transaksi staff yang masuk bersamaan tidak hilang.
+            $existing = $warehouse->warehouseStocks()->lockForUpdate()->get()->keyBy('id');
 
-            // Replace all stocks dengan yang baru
-            $warehouse->warehouseStocks()->delete();
+            // Pasangkan baris kiriman ke baris DB: berdasarkan id dulu, lalu nama SKU
+            // (untuk import CSV yang tidak membawa id).
+            $claimed = [];
+            $matches = [];
+            foreach ($validated['stocks'] as $i => $row) {
+                if (!empty($row['id']) && $existing->has($row['id'])) {
+                    $matches[$i] = $existing[$row['id']];
+                    $claimed[$row['id']] = true;
+                }
+            }
+            foreach ($validated['stocks'] as $i => $row) {
+                if (isset($matches[$i])) continue;
+                $byName = $existing->first(fn($s) => !isset($claimed[$s->id]) && $s->sku_name === $row['sku_name']);
+                if ($byName) {
+                    $matches[$i] = $byName;
+                    $claimed[$byName->id] = true;
+                }
+            }
 
-            $stocks = array_map(fn($s) => [
-                'warehouse_id'  => $warehouse->id,
-                'sku_code'      => $s['sku_code'] ?? null,
-                'sku_name'      => $s['sku_name'],
-                'qty_available' => $s['qty_available'],
-                'price'         => $s['price'] ?? null,
-                'created_at'    => now(),
-                'updated_at'    => now(),
-            ], $validated['stocks']);
+            $renames = [];
+            foreach ($validated['stocks'] as $i => $row) {
+                $stock = $matches[$i] ?? null;
 
-            WarehouseStock::insert($stocks);
+                if (!$stock) {
+                    $stock = $warehouse->warehouseStocks()->create([
+                        'sku_code'      => $row['sku_code'] ?? null,
+                        'sku_name'      => $row['sku_name'],
+                        'qty_available' => $row['qty_available'],
+                        'price'         => $row['price'] ?? null,
+                    ]);
+                    continue;
+                }
 
-            // Warehouse adalah sumber kebenaran - EventStock event AKTIF yang memakai
-            // warehouse & SKU ini di-SET supaya PERSIS SAMA dengan qty warehouse yang
-            // baru. Dicek per-baris EventStock (bukan dilewati hanya karena qty
-            // warehouse-nya sendiri kebetulan tidak berubah di save ini) supaya drift
-            // lama di event tetap ikut terkoreksi kapan pun "Simpan Stock" ditekan.
-            // Tetap tercatat sebagai StockLog type=adjustment untuk jejak audit.
-            $newQtyBySku = collect($validated['stocks'])->pluck('qty_available', 'sku_name');
-            $allSkuNames = $oldQtyBySku->keys()->merge($newQtyBySku->keys())->unique();
+                // Kalau admin tidak mengubah qty, qty terbaru di DB yang dipakai (bisa saja
+                // sudah berkurang karena penjualan sejak halaman dibuka). Kalau diubah,
+                // hanya selisih perubahan admin yang diterapkan di atas qty terbaru.
+                $qty = isset($row['qty_original'])
+                    ? max(0, $stock->qty_available + ($row['qty_available'] - $row['qty_original']))
+                    : $row['qty_available'];
 
-            foreach ($allSkuNames as $skuName) {
-                $newQty = (int) ($newQtyBySku[$skuName] ?? 0);
+                if ($stock->sku_name !== $row['sku_name']) {
+                    $renames[$stock->sku_name] = $row['sku_name'];
+                }
 
-                EventStock::where('sku_name', $skuName)
+                $stock->update([
+                    'sku_code'      => $row['sku_code'] ?? null,
+                    'sku_name'      => $row['sku_name'],
+                    'qty_available' => $qty,
+                    'price'         => $row['price'] ?? null,
+                ]);
+            }
+
+            // Baris yang tidak dikirim lagi = dihapus admin.
+            foreach ($existing as $stock) {
+                if (!isset($claimed[$stock->id])) {
+                    $stock->delete();
+                }
+            }
+
+            // Rename SKU ikut diterapkan ke EventStock event yang belum ditutup, supaya
+            // SKU tetap tersambung ke gudang (pencocokan memakai sku_name).
+            foreach ($renames as $oldName => $newName) {
+                EventStock::where('sku_name', $oldName)
                     ->whereHas('store', fn($q) => $q->where('warehouse_id', $warehouse->id))
-                    ->whereHas('event', fn($q) => $q->where('status', 'active'))
-                    ->each(function (EventStock $es) use ($newQty) {
-                        $delta = $newQty - $es->qty_current;
-                        if ($delta === 0) {
-                            return;
+                    ->whereHas('event', fn($q) => $q->whereIn('status', ['draft', 'active']))
+                    ->each(function (EventStock $es) use ($newName) {
+                        $taken = EventStock::where('event_id', $es->event_id)
+                            ->where('store_id', $es->store_id)
+                            ->where('sku_name', $newName)
+                            ->exists();
+                        if (!$taken) {
+                            $es->update(['sku_name' => $newName]);
                         }
-
-                        $es->qty_current = $newQty;
-                        $es->save();
-
-                        StockLog::create([
-                            'event_stock_id' => $es->id,
-                            'event_id'       => $es->event_id,
-                            'store_id'       => $es->store_id,
-                            'user_id'        => auth()->id(),
-                            'type'           => 'adjustment',
-                            'qty'            => $delta,
-                            'notes'          => 'Sinkron otomatis dari perubahan stok gudang',
-                            'logged_at'      => now(),
-                        ]);
                     });
             }
-        });
+
+            // Stock event yang memakai warehouse ini ikut disamakan: SKU baru otomatis
+            // masuk, qty disetel sama dengan gudang, SKU yang dihapus jadi 0.
+            EventStockSync::syncWarehouse($warehouse);
+        }, 3); // ulangi otomatis kalau bentrok lock dengan transaksi staff
 
         return response()->json([
             'message' => 'Stock gudang berhasil diupdate.',
-            'data'    => $warehouse->warehouseStocks()->get(),
+            'data'    => $warehouse->warehouseStocks()->orderBy('sku_name')->get(),
         ]);
     }
 
     public function destroyStock(Warehouse $warehouse, WarehouseStock $stock)
     {
         abort_if($stock->warehouse_id !== $warehouse->id, 404);
-        $stock->delete();
+        DB::transaction(function () use ($warehouse, $stock) {
+            $stock->delete();
+            EventStockSync::syncWarehouse($warehouse);
+        }, 3);
         return response()->json(['message' => 'Stock berhasil dihapus.']);
     }
 }

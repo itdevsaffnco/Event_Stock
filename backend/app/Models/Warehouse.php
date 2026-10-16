@@ -36,6 +36,13 @@ class Warehouse extends Model
         return $this->belongsToMany(Event::class, 'event_warehouses');
     }
 
+    // Event yang belum ditutup. Satu warehouse hanya boleh dipakai satu event terbuka
+    // sekaligus — stok gudang = stok event, jadi dua event akan saling menimpa qty.
+    public function openEvents(): BelongsToMany
+    {
+        return $this->events()->whereIn('events.status', ['draft', 'active']);
+    }
+
     public function users(): HasMany
     {
         return $this->hasMany(User::class);

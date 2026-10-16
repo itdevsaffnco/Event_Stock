@@ -4,9 +4,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, X, FileDown, Upload, Check, AlertCircle, Search } from 'lucide-react'
 import { warehousesApi } from '@/api/admin/warehouses.api'
 import { Button } from '@/components/ui/button'
+import type { WarehouseStock } from '@/types'
 
-interface StockRow { sku_code: string; sku_name: string; qty_available: number | ''; price: number | '' }
+// `id` + `qty_original` dikirim ke backend supaya hanya selisih qty yang diubah admin
+// yang diterapkan — penjualan staff yang terjadi selama halaman ini terbuka tidak tertimpa,
+// dan rename SKU tetap tersambung ke baris yang sama (bukan dianggap hapus + tambah).
+interface StockRow { id?: number; qty_original?: number; sku_code: string; sku_name: string; qty_available: number | ''; price: number | '' }
 const emptyRow = (): StockRow => ({ sku_code: '', sku_name: '', qty_available: '', price: '' })
+const toRow = (s: WarehouseStock): StockRow => ({
+  id: s.id, qty_original: s.qty_available,
+  sku_code: s.sku_code ?? '', sku_name: s.sku_name, qty_available: s.qty_available, price: (s.price ?? '') as number | '',
+})
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = []
@@ -63,7 +71,7 @@ export default function WarehouseStockPage() {
       initDone.current = true
       setRows(
         stocks.length
-          ? stocks.map(s => ({ sku_code: s.sku_code ?? '', sku_name: s.sku_name, qty_available: s.qty_available, price: (s.price ?? '') as number | '' }))
+          ? stocks.map(toRow)
           : [emptyRow()]
       )
       setReady(true)
@@ -85,14 +93,21 @@ export default function WarehouseStockPage() {
     mutationFn: () => warehousesApi.bulkUpdateStocks(
       warehouseIdNum,
       validRows.map(r => ({
+        id: r.id,
+        qty_original: r.qty_original,
         sku_code: r.sku_code.trim() || undefined,
         sku_name: r.sku_name.trim(),
         qty_available: r.qty_available === '' ? 0 : Number(r.qty_available),
         price: r.price === '' ? undefined : Number(r.price),
       }))
     ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['warehouse-stocks', warehouseIdNum] })
+    onSuccess: res => {
+      // Muat ulang baris dari hasil server — qty_original harus ikut diperbarui,
+      // kalau tidak save berikutnya menghitung selisih dari angka yang sudah basi.
+      const fresh = res.data.data
+      setRows(fresh.length ? fresh.map(toRow) : [emptyRow()])
+      qc.setQueryData(['warehouse-stocks', warehouseIdNum], fresh)
+      qc.invalidateQueries({ queryKey: ['event-stocks'] })
       qc.invalidateQueries({ queryKey: ['warehouses'] })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)

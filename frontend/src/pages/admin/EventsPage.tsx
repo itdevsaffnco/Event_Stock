@@ -55,13 +55,18 @@ function WarehousePicker({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
           {warehouses.map(wh => {
             const selected = value.includes(wh.id)
+            // Warehouse yang masih dipakai event Draft/Aktif lain tidak boleh dipilih
+            const usedBy = wh.open_events?.[0]
             return (
               <button
                 key={wh.id}
                 type="button"
                 onClick={() => toggle(wh.id)}
+                disabled={!!usedBy}
                 className={`relative flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                  selected
+                  usedBy
+                    ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
+                    : selected
                     ? 'border-indigo-500 bg-indigo-50'
                     : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50'
                 }`}
@@ -77,6 +82,9 @@ function WarehousePicker({
                   </p>
                   {wh.location && (
                     <p className="text-xs text-slate-400 truncate mt-0.5">{wh.location}</p>
+                  )}
+                  {usedBy && (
+                    <p className="text-xs text-amber-600 truncate mt-0.5">Dipakai di {usedBy.name}</p>
                   )}
                 </div>
               </button>
@@ -183,7 +191,11 @@ export default function EventsPage() {
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) => eventsApi.create(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); setShowCreate(false); setCreateError('') },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['events'] })
+      qc.invalidateQueries({ queryKey: ['warehouses-active'] })
+      setShowCreate(false); setCreateError('')
+    },
     onError: (err: { response?: { data?: { message?: string } } }) => {
       setCreateError(err?.response?.data?.message ?? 'Gagal membuat event. Coba lagi.')
     },
@@ -193,6 +205,7 @@ export default function EventsPage() {
     mutationFn: () => eventsApi.delete(deleteTarget!.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['events'] })
+      qc.invalidateQueries({ queryKey: ['warehouses-active'] })
       setDeleteTarget(null)
       setDeleteError('')
     },

@@ -20,6 +20,7 @@ export interface Warehouse {
   warehouse_stocks_count?: number
   warehouse_stocks?: WarehouseStock[]
   stores?: Store[]
+  open_events?: { id: number; name: string; code: string; status: 'draft' | 'active' }[]
   created_at: string
 }
 

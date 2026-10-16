@@ -23,7 +23,7 @@ export const warehousesApi = {
   getStocks: (id: number) =>
     api.get<{ data: WarehouseStock[] }>(`/admin/warehouses/${id}/stocks`),
 
-  bulkUpdateStocks: (id: number, stocks: Partial<WarehouseStock>[]) =>
+  bulkUpdateStocks: (id: number, stocks: (Partial<WarehouseStock> & { qty_original?: number })[]) =>
     api.post<{ data: WarehouseStock[]; message: string }>(
       `/admin/warehouses/${id}/stocks/bulk`,
       { stocks }

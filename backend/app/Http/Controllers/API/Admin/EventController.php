@@ -4,6 +4,8 @@ namespace App\Http\Controllers\API\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\Warehouse;
+use App\Services\EventStockSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,13 +16,30 @@ class EventController extends Controller
         $events = Event::query()
             ->with('warehouses:id,name', 'creator:id,name')
             ->withCount('eventStocks')
-            ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%")
-                                                      ->orWhere('code', 'like', "%{$s}%"))
+            ->when($request->search, fn($q, $s) => $q->where(fn($sq) => $sq->where('name', 'like', "%{$s}%")
+                                                                          ->orWhere('code', 'like', "%{$s}%")))
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
             ->latest()
             ->paginate(15);
 
         return response()->json($events);
+    }
+
+    // Satu warehouse hanya boleh dipakai satu event yang belum ditutup (draft/active).
+    // Mengembalikan pesan error kalau ada bentrok, atau null kalau aman.
+    private function warehouseConflict(array $warehouseIds, ?int $exceptEventId = null): ?string
+    {
+        $used = Warehouse::whereIn('id', $warehouseIds)
+            ->whereHas('openEvents', fn($q) => $q->when($exceptEventId, fn($q) => $q->where('events.id', '!=', $exceptEventId)))
+            ->with(['openEvents' => fn($q) => $q->when($exceptEventId, fn($q) => $q->where('events.id', '!=', $exceptEventId))])
+            ->get();
+
+        if ($used->isEmpty()) {
+            return null;
+        }
+
+        $list = $used->map(fn($wh) => "{$wh->name} (dipakai di {$wh->openEvents->first()->name})")->join(', ');
+        return "Warehouse sudah dipakai event lain yang belum ditutup: {$list}. Tutup event tersebut dulu.";
     }
 
     public function store(Request $request)
@@ -34,6 +53,10 @@ class EventController extends Controller
             'end_date'      => 'nullable|date|after_or_equal:start_date',
         ]);
 
+        if ($conflict = $this->warehouseConflict($data['warehouse_ids'])) {
+            return response()->json(['message' => $conflict], 422);
+        }
+
         $event = DB::transaction(function () use ($data) {
             $ev = Event::create([
                 'name'        => $data['name'],
@@ -44,6 +67,7 @@ class EventController extends Controller
             ]);
 
             $ev->warehouses()->sync($data['warehouse_ids']);
+            EventStockSync::syncEvent($ev); // SKU gudang langsung masuk ke event
             return $ev;
         });
 
@@ -91,11 +115,16 @@ class EventController extends Controller
             'end_date'      => 'nullable|date|after_or_equal:start_date',
         ]);
 
+        if (!empty($data['warehouse_ids']) && ($conflict = $this->warehouseConflict($data['warehouse_ids'], $event->id))) {
+            return response()->json(['message' => $conflict], 422);
+        }
+
         DB::transaction(function () use ($data, $event) {
             $event->update(collect($data)->except('warehouse_ids')->toArray());
 
             if (!empty($data['warehouse_ids'])) {
                 $event->warehouses()->sync($data['warehouse_ids']);
+                EventStockSync::syncEvent($event);
             }
         });
 
@@ -122,6 +151,11 @@ class EventController extends Controller
             return response()->json([
                 'message' => "Status tidak bisa berubah dari '{$event->status}' ke '{$data['status']}'.",
             ], 422);
+        }
+
+        // Cek lagi saat aktivasi — menangkap data lama yang dibuat sebelum aturan ini ada.
+        if ($data['status'] === 'active' && ($conflict = $this->warehouseConflict($event->warehouseIds(), $event->id))) {
+            return response()->json(['message' => $conflict], 422);
         }
 
         $event->update(['status' => $data['status']]);

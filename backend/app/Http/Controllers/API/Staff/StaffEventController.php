@@ -94,28 +94,35 @@ class StaffEventController extends Controller
 
         // ── Penjualan / Tester: kurangi stok ─────────────────────────────────
         if (in_array($data['type'], ['penjualan', 'tester'])) {
-            if ($eventStock->qty_current === 0) {
-                return response()->json(['message' => 'Stok produk ini sudah habis.'], 422);
-            }
-            if ($eventStock->qty_current < $data['qty']) {
-                return response()->json(['message' => "Stok tidak mencukupi. Tersisa {$eventStock->qty_current} pcs."], 422);
-            }
+            try {
+                DB::transaction(function () use ($data, $event, $eventStock, $loggedAt) {
+                    // Cek stok di dalam transaksi + lock, supaya 2 staff yang input
+                    // bersamaan tidak bisa membuat stok minus.
+                    $eventStock = EventStock::lockForUpdate()->find($eventStock->id);
+                    if ($eventStock->qty_current === 0) {
+                        throw new \DomainException('Stok produk ini sudah habis.');
+                    }
+                    if ($eventStock->qty_current < $data['qty']) {
+                        throw new \DomainException("Stok tidak mencukupi. Tersisa {$eventStock->qty_current} pcs.");
+                    }
 
-            DB::transaction(function () use ($data, $event, $eventStock, $loggedAt) {
-                StockLog::create([
-                    'event_stock_id' => $eventStock->id,
-                    'event_id'       => $event->id,
-                    'store_id'       => $eventStock->store_id,
-                    'user_id'        => auth()->id(),
-                    'type'           => $data['type'],
-                    'qty'            => -abs($data['qty']),
-                    'notes'          => $data['notes'] ?? null,
-                    'reference_no'   => $data['reference_no'] ?? null,
-                    'logged_at'      => $loggedAt,
-                ]);
-                $eventStock->decrement('qty_current', abs($data['qty']));
-                WarehouseSync::applyDelta($eventStock->store->warehouse_id, $eventStock->sku_name, -abs($data['qty']));
-            });
+                    StockLog::create([
+                        'event_stock_id' => $eventStock->id,
+                        'event_id'       => $event->id,
+                        'store_id'       => $eventStock->store_id,
+                        'user_id'        => auth()->id(),
+                        'type'           => $data['type'],
+                        'qty'            => -abs($data['qty']),
+                        'notes'          => $data['notes'] ?? null,
+                        'reference_no'   => $data['reference_no'] ?? null,
+                        'logged_at'      => $loggedAt,
+                    ]);
+                    $eventStock->decrement('qty_current', abs($data['qty']));
+                    WarehouseSync::applyDelta($eventStock->store->warehouse_id, $eventStock->sku_name, -abs($data['qty']));
+                }, 3); // ulangi otomatis kalau bentrok lock (deadlock / database is locked)
+            } catch (\DomainException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
 
             return response()->json([
                 'message'     => 'Transaksi berhasil dicatat.',
@@ -128,7 +135,7 @@ class StaffEventController extends Controller
             return response()->json(['message' => 'Store tujuan tidak valid untuk event ini.'], 422);
         }
 
-        if ($data['to_store_id'] === $eventStock->store_id) {
+        if ((int) $data['to_store_id'] === $eventStock->store_id) {
             return response()->json(['message' => 'Store asal dan tujuan tidak boleh sama.'], 422);
         }
 
@@ -144,56 +151,66 @@ class StaffEventController extends Controller
             ], 422);
         }
 
-        if ($eventStock->qty_current === 0) {
-            return response()->json(['message' => 'Stok produk ini sudah habis di store asal.'], 422);
+        try {
+            DB::transaction(function () use ($data, $event, $eventStock, $destStock, $loggedAt) {
+                $eventStock = EventStock::lockForUpdate()->find($eventStock->id);
+                if ($eventStock->qty_current === 0) {
+                    throw new \DomainException('Stok produk ini sudah habis di store asal.');
+                }
+                if ($eventStock->qty_current < $data['qty']) {
+                    throw new \DomainException("Stok tidak mencukupi di store asal. Tersisa {$eventStock->qty_current} pcs.");
+                }
+
+                $this->writePengiriman($data, $event, $eventStock, $destStock, $loggedAt);
+            }, 3);
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
-        if ($eventStock->qty_current < $data['qty']) {
-            return response()->json(['message' => "Stok tidak mencukupi di store asal. Tersisa {$eventStock->qty_current} pcs."], 422);
-        }
-
-        DB::transaction(function () use ($data, $event, $eventStock, $destStock, $loggedAt) {
-            $qty    = abs($data['qty']);
-            $userId = auth()->id();
-            $pairId = Str::uuid()->toString();
-
-            // Kurangi store asal
-            StockLog::create([
-                'event_stock_id' => $eventStock->id,
-                'event_id'       => $event->id,
-                'store_id'       => $eventStock->store_id,
-                'user_id'        => $userId,
-                'to_store_id'    => $data['to_store_id'],
-                'pair_id'        => $pairId,
-                'type'           => 'pengiriman',
-                'qty'            => -$qty,
-                'notes'          => $data['notes'] ?? null,
-                'reference_no'   => $data['reference_no'] ?? null,
-                'logged_at'      => $loggedAt,
-            ]);
-            $eventStock->decrement('qty_current', $qty);
-            WarehouseSync::applyDelta($eventStock->store->warehouse_id, $eventStock->sku_name, -$qty);
-
-            // Tambah store tujuan
-            StockLog::create([
-                'event_stock_id' => $destStock->id,
-                'event_id'       => $event->id,
-                'store_id'       => $destStock->store_id,
-                'user_id'        => $userId,
-                'pair_id'        => $pairId,
-                'type'           => 'pengiriman',
-                'qty'            => $qty,
-                'notes'          => $data['notes'] ?? null,
-                'reference_no'   => $data['reference_no'] ?? null,
-                'logged_at'      => $loggedAt,
-            ]);
-            $destStock->increment('qty_current', $qty);
-            WarehouseSync::applyDelta($destStock->store->warehouse_id, $destStock->sku_name, $qty);
-        });
 
         return response()->json([
             'message'     => 'Pengiriman berhasil dicatat.',
             'qty_current' => $eventStock->fresh()->qty_current,
         ], 201);
+    }
+
+    private function writePengiriman(array $data, Event $event, EventStock $eventStock, EventStock $destStock, $loggedAt): void
+    {
+        $qty    = abs($data['qty']);
+        $userId = auth()->id();
+        $pairId = Str::uuid()->toString();
+
+        // Kurangi store asal
+        StockLog::create([
+            'event_stock_id' => $eventStock->id,
+            'event_id'       => $event->id,
+            'store_id'       => $eventStock->store_id,
+            'user_id'        => $userId,
+            'to_store_id'    => $data['to_store_id'],
+            'pair_id'        => $pairId,
+            'type'           => 'pengiriman',
+            'qty'            => -$qty,
+            'notes'          => $data['notes'] ?? null,
+            'reference_no'   => $data['reference_no'] ?? null,
+            'logged_at'      => $loggedAt,
+        ]);
+        $eventStock->decrement('qty_current', $qty);
+        WarehouseSync::applyDelta($eventStock->store->warehouse_id, $eventStock->sku_name, -$qty);
+
+        // Tambah store tujuan
+        StockLog::create([
+            'event_stock_id' => $destStock->id,
+            'event_id'       => $event->id,
+            'store_id'       => $destStock->store_id,
+            'user_id'        => $userId,
+            'pair_id'        => $pairId,
+            'type'           => 'pengiriman',
+            'qty'            => $qty,
+            'notes'          => $data['notes'] ?? null,
+            'reference_no'   => $data['reference_no'] ?? null,
+            'logged_at'      => $loggedAt,
+        ]);
+        $destStock->increment('qty_current', $qty);
+        WarehouseSync::applyDelta($destStock->store->warehouse_id, $destStock->sku_name, $qty);
     }
 
     public function createBulkLog(Request $request, Event $event)
@@ -231,38 +248,37 @@ class StaffEventController extends Controller
             $itemMap[] = ['id' => $stock->id, 'qty' => $item['qty'], 'name' => $stock->sku_name];
         }
 
-        // Validate & write inside one transaction with row-level locks
-        $error = null;
-        DB::transaction(function () use ($data, $event, $itemMap, $loggedAt, &$error) {
-            foreach ($itemMap as $item) {
-                $stock = EventStock::lockForUpdate()->find($item['id']);
+        // Validate & write inside one transaction with row-level locks. Error dilempar
+        // sebagai exception supaya SELURUH item di-rollback — kalau hanya `return`,
+        // item yang sudah ditulis sebelumnya ikut ter-commit dan tercatat dobel saat staff kirim ulang.
+        try {
+            DB::transaction(function () use ($data, $event, $itemMap, $loggedAt) {
+                foreach ($itemMap as $item) {
+                    $stock = EventStock::lockForUpdate()->find($item['id']);
 
-                if ($stock->qty_current === 0) {
-                    $error = "Stok {$item['name']} sudah habis.";
-                    return;
+                    if ($stock->qty_current === 0) {
+                        throw new \DomainException("Stok {$item['name']} sudah habis.");
+                    }
+                    if ($stock->qty_current < $item['qty']) {
+                        throw new \DomainException("Stok {$item['name']} tidak mencukupi (tersisa {$stock->qty_current} pcs).");
+                    }
+
+                    StockLog::create([
+                        'event_stock_id' => $stock->id,
+                        'event_id'       => $event->id,
+                        'store_id'       => $data['store_id'],
+                        'user_id'        => auth()->id(),
+                        'type'           => $data['type'],
+                        'qty'            => -abs($item['qty']),
+                        'notes'          => $data['notes'] ?? null,
+                        'logged_at'      => $loggedAt,
+                    ]);
+                    $stock->decrement('qty_current', $item['qty']);
+                    WarehouseSync::applyDelta($stock->store->warehouse_id, $stock->sku_name, -$item['qty']);
                 }
-                if ($stock->qty_current < $item['qty']) {
-                    $error = "Stok {$item['name']} tidak mencukupi (tersisa {$stock->qty_current} pcs).";
-                    return;
-                }
-
-                StockLog::create([
-                    'event_stock_id' => $stock->id,
-                    'event_id'       => $event->id,
-                    'store_id'       => $data['store_id'],
-                    'user_id'        => auth()->id(),
-                    'type'           => $data['type'],
-                    'qty'            => -abs($item['qty']),
-                    'notes'          => $data['notes'] ?? null,
-                    'logged_at'      => $loggedAt,
-                ]);
-                $stock->decrement('qty_current', $item['qty']);
-                WarehouseSync::applyDelta($stock->store->warehouse_id, $stock->sku_name, -$item['qty']);
-            }
-        });
-
-        if ($error) {
-            return response()->json(['message' => $error], 422);
+            }, 3);
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
 
         return response()->json(['message' => 'Semua transaksi berhasil dicatat.'], 201);
